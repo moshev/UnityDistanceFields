@@ -3,6 +3,8 @@
 		_Mix ("Mix Coefficient", Range(0, 1)) = 0
 		_Tess ("Tesselation", Range(1,32)) = 4
 		_Color ("Color", color) = (1,1,1,0)
+		_Phi ("Phi", Range(0, 1)) = 0
+		_Theta ("Theta", Range(0,1)) = 0
 	}
 	SubShader {
 		Tags { "RenderType"="Opaque" }
@@ -23,11 +25,18 @@
 		}
 
 		float _Mix;
+		float _Phi;
+		float _Theta;
 		float distObject(float3 p) {
 			float a = clamp(0, 1, _Mix);
 			float b = clamp(0, 1, 1 - _Mix);
-			return a * distCapsule(p, float3(0, -0.7, 0), float3(0, 0.7, 0), 0.5) + b * distCube(p, 0, 0.5);
-			//return a * distTorus(0, float3(0,0,0), float3(0,1,0), 1.0, 0.3) + b * distCube(p, 0, 0.5);
+			//return a * distCapsule(p, float3(0, -0.7, 0), float3(0, 0.7, 0), 0.5) + b * distCube(p, 0, 0.5);
+			//return a * distTorus(p, float3(0,0,0), float3(0,1,0), 1.0, 0.3) + b * distCube(p, 0, 0.5);
+			float sp = sin(_Phi * UNITY_PI);
+			float cp = cos(_Phi * UNITY_PI);
+			float st = sin(_Theta * UNITY_TWO_PI);
+			float ct = cos(_Theta * UNITY_TWO_PI);
+			return a * distCone(p, float3(0,0,0), float3(st * cp, st * sp, ct), 0.6, 1.5) + b * distCube(p, 0, 0.5);
 		}
 
 		float _Displacement;
@@ -67,7 +76,7 @@
 		}
 
 		fixed4 _Color;
-		
+
 		struct Input {
 			float4 color : COLOR;
 		};

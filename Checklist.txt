@@ -5,6 +5,6 @@
    x Cube
    X Torus
    X Capsule
-   - Cone
+   X Cone
    - Hyperboloid
    - Paraboloid

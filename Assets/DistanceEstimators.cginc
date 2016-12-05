@@ -1,4 +1,6 @@
-/*cube with 3 lengths*/
+/*
+ * right parallelopiped
+ */
 float distCube(float3 p, float3 c, float3 vr) {
 	float3 bmin = c - vr;
 	float3 bmax = c + vr;
@@ -11,20 +13,46 @@ float distCube(float3 p, float3 c, float3 vr) {
 	return result;
 }
 
-/*proper cube*/
+/*
+ * proper cube
+ */
 float distCube(float3 p, float3 c, float r) {
 	float3 vr = float3(r, r, r);
 	return distCube(p, c, vr);
 }
 
-/*sphere*/
+/*
+ * sphere
+ */
 float distSphere(float3 p, float3 c, float r) {
 	return distance(c, p) - r;
 }
 
-/*torus*/
-/*rc - radius to centre of tube*/
-/*rt - radius of tube*/
+/*
+ * cone
+ * c - centre of base
+ * n - "up" normal
+ * r - base radius
+ * h - height
+ */
+float distCone(float3 p, float3 c, float3 n, float r, float h) {
+	float cosphi = h / sqrt(r*r + h*h);
+	float3 cp = p - c;
+	float dot_n_cp = dot(n, cp);
+	float dheight = sqrt(dot(cp, cp) - dot_n_cp*dot_n_cp);
+	float radius = r * abs(h - dot_n_cp) / h;
+	float dcone = (dheight - radius) * cosphi;
+	//dcone = min(length(cp - h * n), dcone);
+	return max(-dot_n_cp, max(dcone, dot_n_cp - h + 0.001));
+}
+
+/*
+ * torus
+ * c - centre
+ * n - normal
+ * rc - radius to centre of tube
+ * rt - radius of tube
+ */
 float distTorus(float3 p, float3 c, float3 n, float rc, float rt) {
     // equation is
     // (rmax - sqrt(dot(p.xy))) ** 2 + z**2 - rmin**2
