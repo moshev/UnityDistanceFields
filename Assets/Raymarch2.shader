@@ -2,7 +2,7 @@
 	Properties {
 		_Color ("Color", Color) = (1,1,1,1)
 		_SphereRadius ("Radius", Range(0.01, 0.5)) = 0.2
-		_Mix ("Mix", Range(0.01, 0.99)) = 0
+		_Mix ("Mix", Range(0.0, 1.0)) = 0
 	}
 	SubShader {
 		Tags { "RenderType"="Opaque" }
@@ -54,12 +54,18 @@
 		
 		float _SphereRadius;
 		float _Mix;
+		float distMyParaboloid(float3 p) {
+			return max(p.y - 0.45, distParaboloid(p, float3(0, -0.49, 0), 6));
+		}
 		float distToObject(float3 p) {
 			float a = clamp(0, 1, _Mix);
 			float b = clamp(0, 1, 1 - _Mix);
-			return a * distTorus(p, float3(0,0,0), float3(0,1,0), 0.3, 0.1) + b * distCube(p, 0, 0.4);
+			//return a * distTorus(p, float3(0,0,0), float3(0,1,0), 0.3, 0.1) + b * distCube(p, 0, 0.4);
+			//return a * distTorus(p, float3(0,0,0), float3(0,1,0), 0.3, 0.1) + b * distSphere(p, float3(0,0,0), _SphereRadius);
 			//return a * distSphere(p, float3(0,0,0), _SphereRadius) + b * distCube(p, 0, 0.4);
 			//return distSphere(p, float3(0,0,0), 0.3);
+			//return a * distMyParaboloid(p) + b * distSphere(p, float3(0,0,0), _SphereRadius);
+			return a * distMyParaboloid(p) + b * distTorus(p, float3(0,0,0), float3(0,1,0), 0.3, 0.1);
 		}
 		
 		#define EPSILON 0.001
@@ -103,7 +109,7 @@
 			rayresult res;
 			marchresult mres = march(objpoint, dir);
 			res.p = mres.p;
-			res.n = -grad(mres.p);
+			res.n = -normalize(grad(mres.p));
 			res.distance = mres.distance;
 			return res;
 		}
@@ -121,7 +127,8 @@
 				discard;
 			} else {
 				float4 screenp = UnityObjectToClipPos(res.p);
-				o.color = float4(0.5, 0.5, 0, 1);
+				//o.color = _Color;//float4(0.5, 0.5, 0, 1);
+				o.color = float4(abs(res.n), 1);
 				o.depth = screenp.z / screenp.w;
 			}
 			/*

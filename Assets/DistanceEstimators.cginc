@@ -74,8 +74,10 @@ float distCylindery(float3 p, float3 c, float h, float r) {
     return max(max(-h - q.y, q.y - h), sqrt(dot(q.xz, q.xz)) - r);
 }
 
-/*cylinder with spherical caps at ends*/
-/* a, b - centres of the caps, r - radius */
+/* 
+ * cylinder with spherical caps at ends
+ * a, b - centres of the caps, r - radius
+ */
 float distCapsule(float3 p, float3 a, float3 b, float r) {
     float3 n = normalize(b - a);
     float3 p1 = p - a;
@@ -89,4 +91,19 @@ float distCapsule(float3 p, float3 a, float3 b, float r) {
     }
     float daxis = length(p1 - d * n);
     return daxis - r;
+}
+
+/*
+ * Paraboloid with equation y = a(x**2 + z**2)
+ */
+float distParaboloid(float3 p, float3 c, float a) {
+	p -= c;
+	float z = a * (p.x*p.x + p.z*p.z);
+	float2 ox = normalize(p.xz);
+	float2 p0 = float2(sqrt(p.x*p.x + p.z*p.z), p.z);
+	float2 pClosest = float2(p0.x, z);
+	float dy = 2 * a * p0.x;
+	float result = (z - p.y) * sqrt(1.0/(1.0 + dy*dy));
+	if (!isfinite(result) || result > 1000.0) return 1000.0;
+	else return result;
 }
