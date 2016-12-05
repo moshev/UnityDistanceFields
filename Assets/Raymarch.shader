@@ -36,7 +36,8 @@
 			float cp = cos(_Phi * UNITY_PI);
 			float st = sin(_Theta * UNITY_TWO_PI);
 			float ct = cos(_Theta * UNITY_TWO_PI);
-			return a * distCone(p, float3(0,0,0), float3(st * cp, st * sp, ct), 0.6, 1.5) + b * distCube(p, 0, 0.5);
+			float3 coneN = float3(st * cp, st * sp, ct);
+			return a * distCone(p, -0.5 * coneN, coneN, 0.6, 1.5) + b * distCube(p, 0, 0.65);
 		}
 
 		float _Displacement;
@@ -64,9 +65,12 @@
 					break;
 				}
 				t += d;
-				d = distObject(p - t * n);
+				p -= d * n;
+				d = distObject(p);
+				if (abs(d) < 100 * EPS) {
+					//n = normalize(gradient(p));
+				}
 			}
-			p = p - t * n;
 			v.vertex = float4(p, 1);
 			float3 g = gradient(p);
 			//v.normal = float3(1,1,1);//normalize(g);
@@ -87,7 +91,7 @@
 			//float3 n = -normalize(gradient(IN.color.yzw));
 			float3 n = normalize(gradient(IN.color.xyz));
 			o.Normal = n;
-			o.Albedo = abs(n);
+			//o.Albedo = abs(n);
 		}
 		ENDCG
 	}
