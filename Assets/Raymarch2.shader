@@ -116,13 +116,14 @@
 		output frag(v2f input) {
 			rayresult res;
 			res = trace(input.objpos);
-			if (abs(res.distance) > EPSILON) {
-				discard;
-			}
-			float4 screenp = UnityObjectToClipPos(res.p);
 			output o;
-			o.color = float4(0.5, 0.5, 0, 1);
-			o.depth = screenp.z / screenp.w;
+			if (!isfinite(res.distance) || abs(res.distance) > EPSILON) {
+				discard;
+			} else {
+				float4 screenp = UnityObjectToClipPos(res.p);
+				o.color = float4(0.5, 0.5, 0, 1);
+				o.depth = screenp.z / screenp.w;
+			}
 			/*
 			//o.color = fixed4(res.n * 0.5 + 0.5, 1);
 			//float3 sp = res.screenp.xyz / res.screenp.w;
