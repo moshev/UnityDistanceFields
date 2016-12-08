@@ -213,7 +213,7 @@ public abstract class DEBase : MonoBehaviour
             1,4,7,2,
             5,0,3,6,
             3,2,7,6,
-            5,4,1,0,
+            0,5,4,1,
             0,1,2,3,
             4,5,6,7,
         };
@@ -298,18 +298,20 @@ public abstract class DEBase : MonoBehaviour
                 }
             }
         }
-        // do one round of smoothing
+        // do one round of smoothing, plus calculate normals
+        List<Vector3> normals = new List<Vector3>(vertices.Count);
         for (int i = 0; i < vertices.Count; i++)
         {
             Vector3 normal = Gradient(vertices[i]).normalized;
             vertices[i] -= Distance(vertices[i]) * normal;
+            normals.Add(normal);
         }
 
         Debug.Log(string.Format("Created mesh with {0} vertices and {1} indices ({2} triangles)", vertices.Count, triangles.Count, triangles.Count / 3));
 
         mesh.vertices = vertices.ToArray();
         mesh.triangles = triangles.ToArray();
-        mesh.RecalculateNormals();
+        mesh.normals = normals.ToArray();
         mf.mesh = mesh;
     }
 
