@@ -98,12 +98,21 @@ float distCapsule(float3 p, float3 a, float3 b, float r) {
  */
 float distParaboloid(float3 p, float3 c, float a) {
 	p -= c;
-	float z = a * (p.x*p.x + p.z*p.z);
-	float2 ox = normalize(p.xz);
-	float2 p0 = float2(sqrt(p.x*p.x + p.z*p.z), p.z);
-	float2 pClosest = float2(p0.x, z);
-	float dy = 2 * a * p0.x;
-	float result = (z - p.y) * sqrt(1.0/(1.0 + dy*dy));
+	if (p.y < -0.5) return -p.y;
+	float2 p2D = float2(sqrt(dot(p.xz, p.xz)), p.y);
+	float2 pParabola = float2(p2D.x, a * dot(p.xz, p.xz));
+	float dy;
+	for (int i = 0; i < 2; i++) {
+		dy = 2.0*a*pParabola.x;
+		float2 dP = p2D - pParabola;
+		float2 normal = normalize(float2(dy, -1));
+		float2 pTangent = p2D - dot(dP,normal)*normal;
+		pParabola = float2(pTangent.x, a*pTangent.x*pTangent.x);
+	}
+	dy = 2.0*a*pParabola.x;
+	float2 dP = p2D - pParabola;
+	float2 normal = normalize(float2(dy, -1));
+	float result = dot(dP, normal);
 	if (!isfinite(result) || result > 1000.0) return 1000.0;
 	else return result;
 }

@@ -1,10 +1,12 @@
  x Tesselation and marching
- - Screen-sprite marching
+ Y Screen-sprite marching (changed: just use the cube ffs)
  - All algorithms
    x Sphere
    x Cube
    X Torus
    X Capsule
    X Cone
-   - Hyperboloid
-   - Paraboloid
+   - Hyperboloid (abandoned)
+   X Paraboloid
+ - Custom editor
+   - Watch tutorials

@@ -37,7 +37,10 @@
 			float st = sin(_Theta * UNITY_TWO_PI);
 			float ct = cos(_Theta * UNITY_TWO_PI);
 			float3 coneN = float3(st * cp, st * sp, ct);
-			return a * distCone(p, -0.5 * coneN, coneN, 0.6, 1.5) + b * distCube(p, 0, 0.65);
+			//return a * distCone(p, -0.5 * coneN, coneN, 0.6, 1.5) + b * distCube(p, 0, 0.65);
+			float dS = distSphere(p, float3(0,0,0), 0.7);
+			float dP = max(p.y - 0.45, distParaboloid(p, float3(0, -0.49, 0), 6));
+			return a * dP + b * dS;
 		}
 
 		float _Displacement;
