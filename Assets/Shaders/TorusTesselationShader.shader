@@ -1,7 +1,7 @@
 ﻿Shader "Custom/TorusTesselationShader" {
 	Properties {
 		_Color ("Color", Color) = (1,1,1,1)
-                _Tess("Tesselation", Range(1,32)) = 4
+                _Tess("Tesselation", Range(0,32)) = 4
         }
 	SubShader {
                     Tags{ "RenderType" = "Opaque" }
@@ -23,6 +23,7 @@
                 }
 
                 float4 tessDist(appdata_full v0, appdata_full v1, appdata_full v2) {
+                    if (_Tess < 1) return float4(1, 1, 1, 1);
                     float minDist = 0.1;
                     float maxDist = 25.0;
                     //return UnityDistanceBasedTess(v0.vertex, v1.vertex, v2.vertex, minDist, maxDist, _Tess);
