@@ -31,6 +31,31 @@ public struct GridCoordinate : IComparable<GridCoordinate>
         return new GridCoordinate(a.i - b.i, a.j - b.j, a.k - b.k);
     }
 
+    public static GridCoordinate operator *(GridCoordinate a, int b)
+    {
+        return new GridCoordinate(a.i * b, a.j * b, a.k * b);
+    }
+
+    public static GridCoordinate operator *(int a, GridCoordinate b)
+    {
+        return b * a;
+    }
+
+    public static GridCoordinate operator /(GridCoordinate a, int b)
+    {
+        return new GridCoordinate(a.i / b, a.j / b, a.k / b);
+    }
+
+    public static bool operator ==(GridCoordinate a, GridCoordinate b)
+    {
+        return a.i == b.i && a.j == b.j && a.k == b.k;
+    }
+
+    public static bool operator !=(GridCoordinate a, GridCoordinate b)
+    {
+        return !(a == b);
+    }
+
     public Vector3 ToVector3()
     {
         return new Vector3(i, j, k);
@@ -40,15 +65,32 @@ public struct GridCoordinate : IComparable<GridCoordinate>
     {
         return String.Format("[{0} {1} {2}]", i, j, k);
     }
+
+    public override bool Equals(object obj)
+    {
+        if (obj is GridCoordinate)
+        {
+            return this == (GridCoordinate)obj;
+        }
+        else
+        {
+            return obj.Equals(this);
+        }
+    }
+
+    public override int GetHashCode()
+    {
+        return i.GetHashCode() ^ j.GetHashCode() ^ k.GetHashCode();
+    }
 }
 
 public struct GridEdge : IComparable<GridEdge>
 {
     //! Negative vertex
-    public GridCoordinate v0;
+    public GridCoordinate c0;
 
     //! Positive vertex
-    public GridCoordinate v1;
+    public GridCoordinate c1;
 
     //! Distance field at v0
     public float d0;
@@ -59,10 +101,10 @@ public struct GridEdge : IComparable<GridEdge>
     //! t*v0+(1-t)*v1 = crossing point
     public float t;
 
-    public GridEdge(GridCoordinate v0, GridCoordinate v1, float d0, float d1)
+    public GridEdge(GridCoordinate c0, GridCoordinate c1, float d0, float d1)
     {
-        this.v0 = v0;
-        this.v1 = v1;
+        this.c0 = c0;
+        this.c1 = c1;
         this.d0 = d0;
         this.d1 = d1;
         t = (Math.Abs(d1 - d0) < 1e-6f) ? 0.5f : d1 / (d1 - d0);
@@ -70,13 +112,13 @@ public struct GridEdge : IComparable<GridEdge>
 
     public int CompareTo(GridEdge other)
     {
-        int v0Cmp = v0.CompareTo(other.v0);
-        return v0Cmp != 0 ? v0Cmp : v1.CompareTo(other.v1);
+        int v0Cmp = c0.CompareTo(other.c0);
+        return v0Cmp != 0 ? v0Cmp : c1.CompareTo(other.c1);
     }
 
     public override String ToString()
     {
-        return v0 + "->" + v1;
+        return c0 + "->" + c1;
     }
 }
 
@@ -168,182 +210,281 @@ public class VolumeGrid : IEnumerable<Vector3>
     }
 }
 
+// Maintains associations between a GridCoordinate and a T
+public class GridCoordinateOctree<T> : IEnumerable<T> where T : new()
+{
+    private struct Element
+    {
+        public GridCoordinate c;
+        public T v;
+    }
+
+    private interface INode : IEnumerable<T>
+    {
+        // Get value at coordinate c; return true if found; false otherwise
+        bool Get(out T v, GridCoordinate c);
+
+        // Get node matching predicate (there can be multiple nodes per coordinate)
+        bool Get(out T v, GridCoordinate c, Predicate<T> predicate);
+
+        // Add v at c; return a new INode if split was necessary
+        INode Add(T v, GridCoordinate c);
+
+        // Transform each value in-place
+        void Map(Func<T, T> func);
+    }
+
+    private class LeafNode : INode
+    {
+        private Element[] elements;// = new Element[8];
+        private int count = 0;
+        private GridCoordinate min;
+        private GridCoordinate max;
+
+        public LeafNode(GridCoordinate min, GridCoordinate max)
+        {
+            this.min = min;
+            this.max = max;
+        }
+
+        public bool Get(out T v, GridCoordinate c)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                if (elements[i].c == c)
+                {
+                    v = elements[i].v;
+                    return true;
+                }
+            }
+            v = new T();
+            return false;
+        }
+
+        public bool Get(out T v, GridCoordinate c, Predicate<T> predicate)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                if (elements[i].c == c && predicate(elements[i].v))
+                {
+                    v = elements[i].v;
+                    return true;
+                }
+            }
+            v = new T();
+            return false;
+        }
+
+        public INode Add(T v, GridCoordinate c)
+        {
+            if (count == 0) elements = new Element[8];
+            if (count < elements.Length)
+            {
+                Element e = new Element();
+                e.c = c;
+                e.v = v;
+                elements[count++] = e;
+                return this;
+            }
+            else
+            {
+                GridCoordinate diff = (max - min);
+                if (diff.i < 2 && diff.j < 2 && diff.k < 2)
+                {
+                    // in this case we'll have nodes that are just too small
+                    Debug.Log("Error trying to split node! Size is " + diff);
+                    return this;
+                }
+                INode split = new ParentNode(min, max);
+                for (int i = 0; i < elements.Length; i++)
+                {
+                    Element e = elements[i];
+                    split = split.Add(e.v, e.c);
+                }
+                return split.Add(v, c);
+            }
+        }
+
+        public void Map(Func<T, T> func)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                elements[i].v = func(elements[i].v);
+            }
+        }
+
+        public IEnumerator<T> GetEnumerator()
+        {
+            for (int i = 0; i < count; i++)
+            {
+                yield return elements[i].v;
+            }
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+    }
+
+    private class ParentNode : INode
+    {
+        private INode[] children = new INode[8];
+        private GridCoordinate min;
+        private GridCoordinate max;
+
+        public ParentNode(GridCoordinate min, GridCoordinate max)
+        {
+            this.min = min;
+            this.max = max;
+        }
+
+        public bool Get(out T v, GridCoordinate c)
+        {
+            GridCoordinate mid = (min + max) / 2;
+            int n = 0;
+            if (c.i >= mid.i) n |= 1;
+            if (c.j >= mid.j) n |= 2;
+            if (c.k >= mid.k) n |= 4;
+            if (children[n] == null)
+            {
+                v = new T();
+                return false;
+            }
+            return children[n].Get(out v, c);
+        }
+
+        public bool Get(out T v, GridCoordinate c, Predicate<T> predicate)
+        {
+            GridCoordinate mid = (min + max) / 2;
+            int n = 0;
+            if (c.i >= mid.i) n |= 1;
+            if (c.j >= mid.j) n |= 2;
+            if (c.k >= mid.k) n |= 4;
+            if (children[n] == null)
+            {
+                v = new T();
+                return false;
+            }
+            return children[n].Get(out v, c, predicate);
+        }
+
+        public INode Add(T v, GridCoordinate c)
+        {
+            GridCoordinate mid = (min + max) / 2;
+            int n = 0;
+            if (c.i >= mid.i) n |= 1;
+            if (c.j >= mid.j) n |= 2;
+            if (c.k >= mid.k) n |= 4;
+            if (children[n] == null)
+            {
+                GridCoordinate[] corners = new GridCoordinate[3] { min, mid, max };
+                GridCoordinate nmin, nmax;
+                nmin.i = corners[(n & 1) / 1 + 0].i;
+                nmax.i = corners[(n & 1) / 1 + 1].i;
+                nmin.j = corners[(n & 2) / 2 + 0].j;
+                nmax.j = corners[(n & 2) / 2 + 1].j;
+                nmin.k = corners[(n & 4) / 4 + 0].k;
+                nmax.k = corners[(n & 4) / 4 + 1].k;
+                children[n] = new LeafNode(nmin, nmax);
+            }
+            children[n] = children[n].Add(v, c);
+            return this;
+        }
+
+        public void Map(Func<T, T> func)
+        {
+            for (int n = 0; n < 8; n++)
+            {
+                if (children[n] == null) continue;
+                children[n].Map(func);
+            }
+        }
+
+        public IEnumerator<T> GetEnumerator()
+        {
+            for (int n = 0; n < 8; n++)
+            {
+                if (children[n] == null) continue;
+                foreach (T v in children[n])
+                {
+                    yield return v;
+                }
+            }
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+    }
+
+    private int count = 0;
+    private INode rootNode;
+    public int Count { get { return count; } }
+
+    public GridCoordinateOctree(GridCoordinate min, GridCoordinate max)
+    {
+        rootNode = new LeafNode(min, max);
+    }
+
+    // Get value at coordinate c; return true if found; false otherwise
+    public bool Get(out T v, GridCoordinate c)
+    {
+        return rootNode.Get(out v, c);
+    }
+
+    // Get node matching predicate (there can be multiple nodes per coordinate)
+    public bool Get(out T v, GridCoordinate c, Predicate<T> predicate)
+    {
+        return rootNode.Get(out v, c, predicate);
+    }
+
+    // Add v at c; return a new INode if split was necessary
+    public void Add(T v, GridCoordinate c)
+    {
+        rootNode = rootNode.Add(v, c);
+        count++;
+    }
+
+    // Transform each value in-place
+    public void Map(Func<T, T> func)
+    {
+        rootNode.Map(func);
+    }
+
+    public IEnumerator<T> GetEnumerator()
+    {
+        foreach (T v in rootNode)
+        {
+            yield return v;
+        }
+    }
+
+    IEnumerator IEnumerable.GetEnumerator()
+    {
+        return GetEnumerator();
+    }
+}
+
+public struct IndexedVector3
+{
+    public Vector3 v;
+    public int i;
+
+    public static IndexedVector3 Create(Vector3 v)
+    {
+        IndexedVector3 result;
+        result.v = v;
+        result.i = -1;
+        return result;
+    }
+}
+
 [ExecuteInEditMode]
 public abstract class DEBase : MonoBehaviour
 {
     protected abstract float Distance(Vector3 p);
-
-    /*
-    protected struct Edge
-    {
-        public int otherFace;
-    };
-
-    protected struct Face
-    {
-        public int[] vertices;
-        public Edge[] edges;
-
-        public static Face create(int nvertices)
-        {
-            Face f;
-            f.vertices = new int[nvertices];
-            f.edges = new Edge[nvertices];
-            return f;
-        }
-    };
-
-    protected class ConstructibleMesh
-    {
-        private List<Vector3> vertices = new List<Vector3>();
-        private List<Face> faces = new List<Face>();
-        private Dictionary<int, List<Edge>> edgesByVertex = new Dictionary<int, List<Edge>>();
-        private Vector3 unscaledCenter = Vector3.zero;
-
-        public Vector3 Center
-        {
-            get
-            {
-                Vector3 result = Vector3.zero;
-                for (int i = 0; i < vertices.Count; i++)
-                {
-                    result += vertices[i];
-                }
-                return result / vertices.Count;
-            }
-        }
-
-        private ConstructibleMesh()
-        {
-        }
-
-        public static ConstructibleMesh CreateQuad()
-        {
-            ConstructibleMesh mesh = new ConstructibleMesh();
-            mesh.vertices.Add(new Vector3(-1, -1, 0));
-            mesh.vertices.Add(new Vector3(1, -1, 0));
-            mesh.vertices.Add(new Vector3(1, 1, 0));
-            mesh.vertices.Add(new Vector3(-1, 1, 0));
-            Face f = Face.create(4);
-            f.vertices[0] = 0;
-            f.vertices[1] = 1;
-            f.vertices[2] = 2;
-            f.vertices[3] = 3;
-            f.edges[0].otherFace = -1;
-            f.edges[1].otherFace = -1;
-            f.edges[2].otherFace = -1;
-            f.edges[3].otherFace = -1;
-            mesh.faces.Add(f);
-            return mesh;
-        }
-
-        public Mesh ToMesh()
-        {
-            Mesh mesh = new Mesh();
-            List<int> triangles = new List<int>();
-            for (int i = 0; i < faces.Count; i++)
-            {
-                Face f = faces[i];
-                int v1 = f.vertices[0];
-                for (int j = 1; j < f.vertices.Length - 1; j++)
-                {
-                    int v2 = f.vertices[j];
-                    int v3 = f.vertices[j + 1];
-                    triangles.Add(v1);
-                    triangles.Add(v2);
-                    triangles.Add(v3);
-                }
-            }
-            mesh.vertices = vertices.ToArray();
-            mesh.triangles = triangles.ToArray();
-            return mesh;
-        }
-
-        public void Scale(float factor)
-        {
-            for (int i = 0; i < vertices.Count; i++)
-            {
-                vertices[i] *= factor;
-            }
-        }
-
-        public void Recenter()
-        {
-            Vector3 c = Center;
-            for (int i = 0; i < vertices.Count; i++)
-            {
-                vertices[i] -= c;
-            }
-        }
-
-        public void ExtrudeFace(int faceIdx, Vector3 offset)
-        {
-            bool erase = false;
-            Face f = faces[faceIdx];
-            for (int i = 0; i < f.edges.Length; i++)
-            {
-                if (f.edges[i].otherFace != -1)
-                {
-                    erase = true;
-                    break;
-                }
-            }
-            if (!erase)
-            {
-                // Create a new face with the same data, but every edge connects to the previous face
-                Face duplicate = Face.create(f.vertices.Length);
-                for (int i = 0; i < f.vertices.Length; i++)
-                {
-                    duplicate.vertices[i] = f.vertices[f.vertices.Length - i - 1];
-                }
-                for (int i = 0; i < f.edges.Length; i++)
-                {
-                    duplicate.edges[i].otherFace = faceIdx;
-                }
-                faceIdx = faces.Count;
-                faces.Add(duplicate);
-                f = duplicate;
-            }
-            // extrude all vertices along offset
-            int numVertices = f.vertices.Length;
-            int firstVertexIdx = vertices.Count;
-            for (int i = 0; i < f.vertices.Length; i++)
-            {
-                Vector3 extruded = vertices[f.vertices[i]] + offset;
-                vertices.Add(extruded);
-            }
-            // every edge becomes a quad
-            int numQuads = f.edges.Length;
-            int firstQuadIdx = faces.Count;
-            for (int i = 0; i < f.edges.Length; i++)
-            {
-                Edge e = f.edges[i];
-                Face quad = Face.create(4);
-                quad.vertices = new int[4];
-                quad.vertices[0] = f.vertices[i];
-                quad.vertices[1] = f.vertices[(i + 1) % f.vertices.Length];
-                quad.vertices[2] = firstVertexIdx + (i + 1) % numVertices;
-                quad.vertices[3] = firstVertexIdx + i;
-                quad.edges = new Edge[4];
-                quad.edges[0] = e;
-                quad.edges[1].otherFace = firstQuadIdx + (i + 1) % numQuads;
-                quad.edges[2].otherFace = firstQuadIdx + (i + numQuads - 1) % numQuads;
-                quad.edges[3].otherFace = faceIdx;
-                f.edges[i].otherFace = firstQuadIdx + i;
-                faces.Add(quad);
-            }
-            // now move the face to the new vertices
-            for (int i = 0; i < f.vertices.Length; i++)
-            {
-                f.vertices[i] = firstVertexIdx + i;
-            }
-        }
-
-        public void SubdivideFace(int face, int times)
-        {
-        }
-    }
-    */
 
     public Vector3 Gradient(Vector3 centre, float epsilon = 0.0001f)
     {
@@ -374,12 +515,13 @@ public abstract class DEBase : MonoBehaviour
     }
 
     private float[,,] distances;
-    private List<GridEdge> edgesCrossingSurface;
+    private GridCoordinateOctree<GridEdge> edgesCrossingSurface;
+    private GridCoordinateOctree<IndexedVector3> netVertices;
 
     [Range(0.5f, 128)]
     public float gridRadius = 8.0f;
 
-    [Range(4, 128)]
+    [Range(4, 256)]
     public int gridSize = 48;
 
     public bool showErrorEdges = false;
@@ -422,8 +564,6 @@ public abstract class DEBase : MonoBehaviour
         //cornersGridSize = subdivs + 1;
     }
 
-    private VolumeGrid netVertices;
-
     public void AlgorithmCalculateDistances()
     {
         distances = new float[gridSize, gridSize, gridSize];
@@ -443,7 +583,8 @@ public abstract class DEBase : MonoBehaviour
 
     public void AlgorithmFindEdgeIntersections()
     {
-        edgesCrossingSurface = new List<GridEdge>();
+        edgesCrossingSurface = new GridCoordinateOctree<GridEdge>(
+            new GridCoordinate(0, 0, 0), new GridCoordinate(gridSize, gridSize, gridSize));
         for (int k = 0; k < gridSize; k++)
         {
             for (int j = 0; j < gridSize; j++)
@@ -454,7 +595,6 @@ public abstract class DEBase : MonoBehaviour
                     if (distances[i, j, k] > 0) continue;
                     GridCoordinate[] neighbours = new GridCoordinate[]
                     {
-                        // VERY IMPORTANT: keep this in ascending order!
                         new GridCoordinate(i, j, k-1),
                         new GridCoordinate(i, j-1, k),
                         new GridCoordinate(i-1, j, k),
@@ -474,8 +614,8 @@ public abstract class DEBase : MonoBehaviour
                                 new GridCoordinate(neighbour.i, neighbour.j, neighbour.k),
                                 distances[i, j, k],
                                 distances[neighbour.i, neighbour.j, neighbour.k]);
-                        Vector3 v0 = VectorFromCoordinate(e.v0);
-                        Vector3 v1 = VectorFromCoordinate(e.v1);
+                        Vector3 v0 = VectorFromCoordinate(e.c0);
+                        Vector3 v1 = VectorFromCoordinate(e.c1);
                         float t = e.t;
                         Vector3 p = t * v0 + (1 - t) * v1;
                         float d = Distance(p);
@@ -485,7 +625,7 @@ public abstract class DEBase : MonoBehaviour
                             p = t * v0 + (1 - t) * v1;
                         }
                         e.t = t;
-                        edgesCrossingSurface.Add(e);
+                        edgesCrossingSurface.Add(e, e.c0);
                     }
                 }
             }
@@ -507,7 +647,8 @@ public abstract class DEBase : MonoBehaviour
 
     public void AlgorithmConstructVertices()
     {
-        netVertices = new VolumeGrid(gridSize);
+        netVertices = new GridCoordinateOctree<IndexedVector3>(
+            new GridCoordinate(0, 0, 0), new GridCoordinate(gridSize, gridSize, gridSize));
         errorEdges = new List<GridEdge>();
         int errors = 0;
         for (int k = 0; k < gridSize - 1; k++)
@@ -538,41 +679,65 @@ public abstract class DEBase : MonoBehaviour
                             c1 = tmpc;
                         }
                         if (d0 > 0 || d1 <= 0) continue;
-                        GridEdge gridEdge = new GridEdge();
-                        gridEdge.v0 = c0;
-                        gridEdge.v1 = c1;
-                        int idx = edgesCrossingSurface.BinarySearch(gridEdge);
-                        //int idx = edgesCrossingSurface.FindIndex((GridEdge e) => gridEdge.CompareTo(e) == 0);
-                        if (idx < 0)
+                        GridEdge gridEdge;
+                        bool found = edgesCrossingSurface.Get(out gridEdge, c0,
+                            (GridEdge e) => e.c1 == c1);
+                        if (!found)
                         {
                             //Debug.Log(String.Format(
-                            //"Edge not found {0}->{1} of voxel {2}",
-                            //UnpackCubeVertex(iV0), UnpackCubeVertex(iV1), cBase));
+                            //    "Edge not found {0}->{1} of voxel {2}",
+                            //    c0, c1, cBase));
                             errors++;
+                            gridEdge.c0 = c0;
+                            gridEdge.c1 = c1;
                             errorEdges.Add(gridEdge);
                             continue;
                         }
-                        Vector3 v0 = VectorFromCoordinate(c0);
-                        Vector3 v1 = VectorFromCoordinate(c1);
-                        float t = edgesCrossingSurface[idx].t;
+                        Vector3 v0 = VectorFromCoordinate(gridEdge.c0);
+                        Vector3 v1 = VectorFromCoordinate(gridEdge.c1);
+                        float t = gridEdge.t;
                         sum += t * v0 + (1 - t) * v1;
                         nEdges++;
                     }
                     if (nEdges > 0)
                     {
-                        netVertices.Add(cBase, sum / nEdges);
+                        netVertices.Add(IndexedVector3.Create(sum / nEdges), cBase);
                         //sum = VectorFromCoordinate(cBase);
                         //meshVertices.Add(sum + 0.5f * cornerScale * Vector3.one);
                     }
                 }
             }
         }
-        Debug.Log("Total errors " + errors);
+        Debug.Log("Total error edges " + errors);
         currentStep = AlgorithmStep.VerticesConstructed;
+    }
+
+    private class NetToArrayMapper
+    {
+        private Vector3[] vertices;
+        private int iVertex;
+
+        public NetToArrayMapper(Vector3[] vertices)
+        {
+            this.vertices = vertices;
+            iVertex = 0;
+        }
+
+        public IndexedVector3 Put(IndexedVector3 iv)
+        {
+            iv.i = iVertex++;
+            vertices[iv.i] = iv.v;
+            return iv;
+        }
     }
 
     public void AlgorithmCreateMesh()
     {
+        if (netVertices.Count > 65000)
+        {
+            Debug.Log(String.Format("Refusing to create mesh with more than 65k vertices: {0}", netVertices.Count));
+            return;
+        }
         MeshFilter mf = GetComponent<MeshFilter>();
         if (mf == null)
         {
@@ -582,15 +747,15 @@ public abstract class DEBase : MonoBehaviour
         mf.mesh = null;
         Mesh mesh = new Mesh();
         int[] triangles = new int[edgesCrossingSurface.Count * 2 * 3];
-        Vector3[] vertices = new Vector3[edgesCrossingSurface.Count * 4];
+        Vector3[] vertices = new Vector3[netVertices.Count];
+        netVertices.Map(new NetToArrayMapper(vertices).Put);
         int iTriangle = 0;
-        int iVertex = 0;
         foreach (GridEdge edge in edgesCrossingSurface)
         {
-            GridCoordinate c0 = edge.v0;
-            GridCoordinate c1 = edge.v1;
+            GridCoordinate c0 = edge.c0;
+            GridCoordinate c1 = edge.c1;
             Debug.Assert(c0.CompareTo(c1) != 0);
-            Vector3 vmid = edge.t * VectorFromCoordinate(edge.v0) + (1 - edge.t) * VectorFromCoordinate(edge.v1);
+            //Vector3 vmid = edge.t * VectorFromCoordinate(edge.c0) + (1 - edge.t) * VectorFromCoordinate(edge.c1);
             GridCoordinate cBase;
             if (c0.CompareTo(c1) < 0)
             {
@@ -603,26 +768,24 @@ public abstract class DEBase : MonoBehaviour
             int di = 1 - Math.Abs(c0.i - c1.i);
             int dj = 1 - Math.Abs(c0.j - c1.j);
             int dk = 1 - Math.Abs(c0.k - c1.k);
-            Vector3 v;
-            int iStartVertex = iVertex;
+            int iidx = 0;
+            int[] indices = new int[4];
             for (int k = cBase.k - dk; k <= cBase.k; k++)
             {
                 for (int j = cBase.j - dj; j <= cBase.j; j++)
                 {
                     for (int i = cBase.i - di; i <= cBase.i; i++)
                     {
-                        bool found = netVertices.Get(out v, new GridCoordinate(i, j, k));
-                        Debug.Assert(found);
+                        IndexedVector3 iv;
+                        bool found = netVertices.Get(out iv, new GridCoordinate(i, j, k));
                         if (!found)
                         {
-                            return;
+                            break;
                         }
-                        vertices[iVertex++] = v;
+                        indices[iidx++] = iv.i;
                     }
                 }
             }
-            //vertices[iVertex++] = vmid;
-            Debug.Assert(iVertex - iStartVertex == 4);
             /*
             int[] winding;
             if (c0.i < c1.i || c0.j > c1.j || c0.k < c1.k)
@@ -651,27 +814,28 @@ public abstract class DEBase : MonoBehaviour
             }
             for (int i = 0; i < 2; i++)
             {
-                triangles[iTriangle++] = iStartVertex;
-                triangles[iTriangle++] = iStartVertex + winding[i];
-                triangles[iTriangle++] = iStartVertex + winding[i + 1];
+                triangles[iTriangle++] = indices[0];
+                triangles[iTriangle++] = indices[winding[i]];
+                triangles[iTriangle++] = indices[winding[i + 1]];
             }
         }
         if (iTriangle != triangles.Length)
         {
-            Debug.Break();
-        }
-        if (iVertex != vertices.Length)
-        {
-            Debug.Break();
+            //Debug.Break();
+            int[] t2 = new int[iTriangle];
+            Array.Copy(triangles, t2, iTriangle);
+            triangles = t2;
         }
         Vector3[] normals = new Vector3[vertices.Length];
         for (int i = 0; i < vertices.Length; i++)
         {
             normals[i] = Gradient(vertices[i]);
         }
+        Debug.Log(String.Format("Assigning mesh with {0} vertices and {1} triangles", vertices.Length, triangles.Length));
         mesh.vertices = vertices;
-        mesh.normals = normals;
+        //mesh.normals = normals;
         mesh.triangles = triangles;
+        mesh.RecalculateNormals();
         mf.mesh = mesh;
         currentStep = AlgorithmStep.Finished;
         /*
@@ -945,8 +1109,8 @@ public abstract class DEBase : MonoBehaviour
     {
         foreach (GridEdge e in edgesCrossingSurface)
         {
-            Vector3 v0 = VectorFromCoordinate(e.v0) + transform.position;
-            Vector3 v1 = VectorFromCoordinate(e.v1) + transform.position;
+            Vector3 v0 = VectorFromCoordinate(e.c0) + transform.position;
+            Vector3 v1 = VectorFromCoordinate(e.c1) + transform.position;
             Vector3 vmid = e.t * v0 + (1f - e.t) * v1;
             Gizmos.color = Color.green;
             Gizmos.DrawLine(v0, vmid);
@@ -957,8 +1121,8 @@ public abstract class DEBase : MonoBehaviour
         Gizmos.color = new Color(0.2f, 0.5f, 0.3f);
         foreach (GridEdge e in errorEdges)
         {
-            Vector3 v0 = VectorFromCoordinate(e.v0) + transform.position;
-            Vector3 v1 = VectorFromCoordinate(e.v1) + transform.position;
+            Vector3 v0 = VectorFromCoordinate(e.c0) + transform.position;
+            Vector3 v1 = VectorFromCoordinate(e.c1) + transform.position;
             Gizmos.DrawLine(v0, v1);
         }
     }
@@ -967,9 +1131,9 @@ public abstract class DEBase : MonoBehaviour
     {
         float size = 0.2f;
         Gizmos.color = Color.black;
-        foreach (Vector3 v in netVertices)
+        foreach (IndexedVector3 iv in netVertices)
         {
-            Vector3 pos = v + transform.position;
+            Vector3 pos = iv.v + transform.position;
             Gizmos.DrawCube(pos, size * cornerScale * Vector3.one);
         }
     }
