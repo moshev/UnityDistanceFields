@@ -12,15 +12,4 @@ public class DESphere : DEBase
     {
         return (p - center).magnitude - radius;
     }
-
-    /*
-    protected override Mesh GetBaseMesh()
-    {
-        ConstructibleMesh construct = ConstructibleMesh.CreateQuad();
-        construct.ExtrudeFace(0, -2 * Vector3.forward);
-        construct.Recenter();
-        construct.Scale(0.5f);
-        return construct.ToMesh();
-    }
-    */
 }

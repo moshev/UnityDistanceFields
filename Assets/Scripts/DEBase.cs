@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading;
 using UnityEngine;
 
 public struct GridCoordinate : IComparable<GridCoordinate>
@@ -122,96 +123,8 @@ public struct GridEdge : IComparable<GridEdge>
     }
 }
 
-public class VolumeGrid : IEnumerable<Vector3>
-{
-    private int gridSize;
-    private Vector3[][][] grid;
-    private bool[][][] present;
-
-    public VolumeGrid(int gridSize)
-    {
-        this.gridSize = gridSize;
-        this.grid = new Vector3[gridSize][][];
-        this.present = new bool[gridSize][][];
-    }
-
-    public static void Set<T>(T[][][] level1, GridCoordinate c, T value)
-    {
-        int gridSize = level1.Length;
-        T[][] level2 = level1[c.k];
-        if (level2 == null)
-        {
-            level2 = new T[gridSize][];
-            level1[c.k] = level2;
-        }
-        T[] level3 = level2[c.j];
-        if (level3 == null)
-        {
-            level3 = new T[gridSize];
-            level2[c.j] = level3;
-        }
-        level3[c.i] = value;
-    }
-
-    public static T Get<T>(T[][][] level1, GridCoordinate c) where T : new()
-    {
-        T zero = new T();
-        T[][] level2 = level1[c.k];
-        if (level2 == null) return zero;
-        T[] level3 = level2[c.j];
-        if (level3 == null) return zero;
-        return level3[c.i];
-    }
-
-    public void Add(GridCoordinate c, Vector3 v)
-    {
-        try
-        {
-            Set(grid, c, v);
-            Set(present, c, true);
-        }
-        catch (ArgumentOutOfRangeException e)
-        {
-            Debug.Log("s-h-i-t");
-            throw e;
-        }
-    }
-
-    public bool Get(out Vector3 v, GridCoordinate c)
-    {
-        v = Get(grid, c);
-        return Get(present, c);
-    }
-
-    public IEnumerator<Vector3> GetEnumerator()
-    {
-        for (int k = 0; k < gridSize; k++)
-        {
-            Vector3[][] gLevel2 = grid[k];
-            bool[][] pLevel2 = present[k];
-            if (gLevel2 == null || pLevel2 == null) continue;
-            for (int j = 0; j < gridSize; j++)
-            {
-                Vector3[] gLevel3 = gLevel2[j];
-                bool[] pLevel3 = pLevel2[j];
-                if (gLevel3 == null || pLevel3 == null) continue;
-                for (int i = 0; i < gridSize; i++)
-                {
-                    if (!pLevel3[i]) continue;
-                    yield return gLevel3[i];
-                }
-            }
-        }
-    }
-
-    IEnumerator IEnumerable.GetEnumerator()
-    {
-        return GetEnumerator();
-    }
-}
-
 // Maintains associations between a GridCoordinate and a T
-public class GridCoordinateOctree<T> : IEnumerable<T> where T : new()
+public class GridCoordinateOctree<T> : IEnumerable<T>
 {
     private struct Element
     {
@@ -222,10 +135,10 @@ public class GridCoordinateOctree<T> : IEnumerable<T> where T : new()
     private interface INode : IEnumerable<T>
     {
         // Get value at coordinate c; return true if found; false otherwise
-        bool Get(out T v, GridCoordinate c);
+        bool Get(ref T v, GridCoordinate c);
 
         // Get node matching predicate (there can be multiple nodes per coordinate)
-        bool Get(out T v, GridCoordinate c, Predicate<T> predicate);
+        bool Get(ref T v, GridCoordinate c, Predicate<T> predicate);
 
         // Add v at c; return a new INode if split was necessary
         INode Add(T v, GridCoordinate c);
@@ -247,7 +160,7 @@ public class GridCoordinateOctree<T> : IEnumerable<T> where T : new()
             this.max = max;
         }
 
-        public bool Get(out T v, GridCoordinate c)
+        public bool Get(ref T v, GridCoordinate c)
         {
             for (int i = 0; i < count; i++)
             {
@@ -257,11 +170,10 @@ public class GridCoordinateOctree<T> : IEnumerable<T> where T : new()
                     return true;
                 }
             }
-            v = new T();
             return false;
         }
 
-        public bool Get(out T v, GridCoordinate c, Predicate<T> predicate)
+        public bool Get(ref T v, GridCoordinate c, Predicate<T> predicate)
         {
             for (int i = 0; i < count; i++)
             {
@@ -271,7 +183,6 @@ public class GridCoordinateOctree<T> : IEnumerable<T> where T : new()
                     return true;
                 }
             }
-            v = new T();
             return false;
         }
 
@@ -339,7 +250,7 @@ public class GridCoordinateOctree<T> : IEnumerable<T> where T : new()
             this.max = max;
         }
 
-        public bool Get(out T v, GridCoordinate c)
+        public bool Get(ref T v, GridCoordinate c)
         {
             GridCoordinate mid = (min + max) / 2;
             int n = 0;
@@ -348,13 +259,12 @@ public class GridCoordinateOctree<T> : IEnumerable<T> where T : new()
             if (c.k >= mid.k) n |= 4;
             if (children[n] == null)
             {
-                v = new T();
                 return false;
             }
-            return children[n].Get(out v, c);
+            return children[n].Get(ref v, c);
         }
 
-        public bool Get(out T v, GridCoordinate c, Predicate<T> predicate)
+        public bool Get(ref T v, GridCoordinate c, Predicate<T> predicate)
         {
             GridCoordinate mid = (min + max) / 2;
             int n = 0;
@@ -363,10 +273,9 @@ public class GridCoordinateOctree<T> : IEnumerable<T> where T : new()
             if (c.k >= mid.k) n |= 4;
             if (children[n] == null)
             {
-                v = new T();
                 return false;
             }
-            return children[n].Get(out v, c, predicate);
+            return children[n].Get(ref v, c, predicate);
         }
 
         public INode Add(T v, GridCoordinate c)
@@ -429,15 +338,15 @@ public class GridCoordinateOctree<T> : IEnumerable<T> where T : new()
     }
 
     // Get value at coordinate c; return true if found; false otherwise
-    public bool Get(out T v, GridCoordinate c)
+    public bool Get(ref T v, GridCoordinate c)
     {
-        return rootNode.Get(out v, c);
+        return rootNode.Get(ref v, c);
     }
 
     // Get node matching predicate (there can be multiple nodes per coordinate)
-    public bool Get(out T v, GridCoordinate c, Predicate<T> predicate)
+    public bool Get(ref T v, GridCoordinate c, Predicate<T> predicate)
     {
-        return rootNode.Get(out v, c, predicate);
+        return rootNode.Get(ref v, c, predicate);
     }
 
     // Add v at c; return a new INode if split was necessary
@@ -505,6 +414,7 @@ public abstract class DEBase : MonoBehaviour
     }
 
     private AlgorithmStep currentStep = AlgorithmStep.NotStarted;
+    private ProgressReport currentProgress = null;
 
     public AlgorithmStep CurrentStep
     {
@@ -529,9 +439,6 @@ public abstract class DEBase : MonoBehaviour
     public bool debugAlwaysShowEdges = false;
 
     private float cornerScale;
-
-    //private int cornersGridSize;
-    private MeshFilter meshFilter;
 
     public static Vector3[] corners = new Vector3[]
     {
@@ -564,8 +471,34 @@ public abstract class DEBase : MonoBehaviour
         //cornersGridSize = subdivs + 1;
     }
 
-    public void AlgorithmCalculateDistances()
+    private void StartTask(ProgressReport progressReport, string message, ThreadStart task)
     {
+        currentProgress = progressReport;
+        currentProgress.StartProgress(message);
+        Thread worker = new Thread(delegate ()
+        {
+            try
+            {
+                task();
+            }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
+            }
+            progressReport.EndProgress();
+        });
+        worker.IsBackground = true;
+        worker.Start();
+    }
+
+    public void AlgorithmCalculateDistances(ProgressReport progressReport)
+    {
+        StartTask(progressReport, "Calculating distances", TaskCalculateDistances);
+    }
+
+    private void TaskCalculateDistances()
+    {
+        Debug.Assert(currentProgress != null);
         distances = new float[gridSize, gridSize, gridSize];
         for (int k = 0; k < gridSize; k++)
         {
@@ -577,12 +510,19 @@ public abstract class DEBase : MonoBehaviour
                     distances[i, j, k] = Distance(centre);
                 }
             }
+            currentProgress.SetProgress((k + 1) / (double)gridSize);
         }
         currentStep = AlgorithmStep.DistanceCalculated;
     }
 
-    public void AlgorithmFindEdgeIntersections()
+    public void AlgorithmFindEdgeIntersections(ProgressReport progressReport)
     {
+        StartTask(progressReport, "Finding edge intersections", TaskFindEdgeIntersections);
+    }
+
+    public void TaskFindEdgeIntersections()
+    {
+        Debug.Assert(currentProgress != null);
         edgesCrossingSurface = new GridCoordinateOctree<GridEdge>(
             new GridCoordinate(0, 0, 0), new GridCoordinate(gridSize, gridSize, gridSize));
         for (int k = 0; k < gridSize; k++)
@@ -629,6 +569,7 @@ public abstract class DEBase : MonoBehaviour
                     }
                 }
             }
+            currentProgress.SetProgress((k + 1) / (double)gridSize);
         }
         currentStep = AlgorithmStep.EdgeIntersectionsFound;
     }
@@ -645,7 +586,12 @@ public abstract class DEBase : MonoBehaviour
 
     private List<GridEdge> errorEdges;
 
-    public void AlgorithmConstructVertices()
+    public void AlgorithmConstructVertices(ProgressReport progressReport)
+    {
+        StartTask(progressReport, "Constructing vertices", TaskConstructVertices);
+    }
+
+    public void TaskConstructVertices()
     {
         netVertices = new GridCoordinateOctree<IndexedVector3>(
             new GridCoordinate(0, 0, 0), new GridCoordinate(gridSize, gridSize, gridSize));
@@ -679,8 +625,8 @@ public abstract class DEBase : MonoBehaviour
                             c1 = tmpc;
                         }
                         if (d0 > 0 || d1 <= 0) continue;
-                        GridEdge gridEdge;
-                        bool found = edgesCrossingSurface.Get(out gridEdge, c0,
+                        GridEdge gridEdge = new GridEdge();
+                        bool found = edgesCrossingSurface.Get(ref gridEdge, c0,
                             (GridEdge e) => e.c1 == c1);
                         if (!found)
                         {
@@ -707,6 +653,7 @@ public abstract class DEBase : MonoBehaviour
                     }
                 }
             }
+            currentProgress.SetProgress((k + 1) / (double)(gridSize - 1));
         }
         Debug.Log("Total error edges " + errors);
         currentStep = AlgorithmStep.VerticesConstructed;
@@ -731,7 +678,14 @@ public abstract class DEBase : MonoBehaviour
         }
     }
 
-    public void AlgorithmCreateMesh()
+    private class CreateMeshResult
+    {
+        public volatile Vector3[] vertices;
+        public volatile Vector3[] normals;
+        public volatile int[] triangles;
+    }
+
+    public void AlgorithmCreateMesh(ProgressReport progressReport)
     {
         if (netVertices.Count > 65000)
         {
@@ -745,11 +699,28 @@ public abstract class DEBase : MonoBehaviour
             return;
         }
         mf.mesh = null;
-        Mesh mesh = new Mesh();
+        CreateMeshResult result = new CreateMeshResult();
+        progressReport.Callback = delegate ()
+        {
+            Debug.Log(String.Format("Assigning mesh with {0} vertices and {1} triangles",
+                result.vertices.Length, result.triangles.Length));
+            Mesh mesh = new Mesh();
+            mesh.vertices = result.vertices;
+            //mesh.normals = result.normals;
+            mesh.triangles = result.triangles;
+            mesh.RecalculateNormals();
+            mf.mesh = mesh;
+        };
+        StartTask(progressReport, "Creating mesh", () => TaskCreateMesh(result));
+    }
+
+    private void TaskCreateMesh(CreateMeshResult outResult)
+    {
         int[] triangles = new int[edgesCrossingSurface.Count * 2 * 3];
         Vector3[] vertices = new Vector3[netVertices.Count];
         netVertices.Map(new NetToArrayMapper(vertices).Put);
         int iTriangle = 0;
+        int iEdge = 0;
         foreach (GridEdge edge in edgesCrossingSurface)
         {
             GridCoordinate c0 = edge.c0;
@@ -776,8 +747,8 @@ public abstract class DEBase : MonoBehaviour
                 {
                     for (int i = cBase.i - di; i <= cBase.i; i++)
                     {
-                        IndexedVector3 iv;
-                        bool found = netVertices.Get(out iv, new GridCoordinate(i, j, k));
+                        IndexedVector3 iv = new IndexedVector3();
+                        bool found = netVertices.Get(ref iv, new GridCoordinate(i, j, k));
                         if (!found)
                         {
                             break;
@@ -786,23 +757,6 @@ public abstract class DEBase : MonoBehaviour
                     }
                 }
             }
-            /*
-            int[] winding;
-            if (c0.i < c1.i || c0.j > c1.j || c0.k < c1.k)
-            {
-                winding = new int[5] { 0, 1, 3, 2, 0 };
-            }
-            else
-            {
-                winding = new int[5] { 1, 0, 2, 3, 1 };
-            }
-            for (int i = 0; i < 4; i++)
-            {
-                triangles[iTriangle++] = iStartVertex + winding[i];
-                triangles[iTriangle++] = iStartVertex + winding[i + 1];
-                triangles[iTriangle++] = iStartVertex + 4;
-            }
-            */
             int[] winding;
             if (c0.i < c1.i || c0.j > c1.j || c0.k < c1.k)
             {
@@ -818,199 +772,20 @@ public abstract class DEBase : MonoBehaviour
                 triangles[iTriangle++] = indices[winding[i]];
                 triangles[iTriangle++] = indices[winding[i + 1]];
             }
+            iEdge++;
+            currentProgress.SetProgress(iEdge / (double)(edgesCrossingSurface.Count + vertices.Length));
         }
-        if (iTriangle != triangles.Length)
-        {
-            //Debug.Break();
-            int[] t2 = new int[iTriangle];
-            Array.Copy(triangles, t2, iTriangle);
-            triangles = t2;
-        }
+        Debug.Assert(iTriangle == triangles.Length);
         Vector3[] normals = new Vector3[vertices.Length];
         for (int i = 0; i < vertices.Length; i++)
         {
             normals[i] = Gradient(vertices[i]);
+            currentProgress.SetProgress((iEdge + i + 1) / (double)(edgesCrossingSurface.Count + vertices.Length));
         }
-        Debug.Log(String.Format("Assigning mesh with {0} vertices and {1} triangles", vertices.Length, triangles.Length));
-        mesh.vertices = vertices;
-        //mesh.normals = normals;
-        mesh.triangles = triangles;
-        mesh.RecalculateNormals();
-        mf.mesh = mesh;
+        outResult.vertices = vertices;
+        outResult.normals = normals;
+        outResult.triangles = triangles;
         currentStep = AlgorithmStep.Finished;
-        /*
-        int[,,] cornerVertexIndices = new int[cornersGridSize, cornersGridSize, cornersGridSize];
-        bool[,,] addCube = new bool[subdivs, subdivs, subdivs];
-        System.Array.Clear(cornerVertexIndices, 0, cornerVertexIndices.Length);
-        System.Array.Clear(addCube, 0, addCube.Length);
-        for (int k = 0; k < subdivs; k++)
-        {
-            for (int j = 0; j < subdivs; j++)
-            {
-                for (int i = 0; i < subdivs; i++)
-                {
-                    // only interested on cubes inside
-                    if (distances[i + 1, j + 1, k + 1] > 0) continue;
-                    Vector3 centre;
-                    centre.x = (float)i * (2 * gridRadius / subdivs) - gridRadius;
-                    centre.y = (float)j * (2 * gridRadius / subdivs) - gridRadius;
-                    centre.z = (float)k * (2 * gridRadius / subdivs) - gridRadius;
-                    int firstVertexIdx = vertices.Count;
-                    int firstTriangleIdx = triangles.Count;
-                    for (int iQuad = 0; iQuad < 6; iQuad++)
-                    {
-                        int iCorner = iQuad * 4;
-                        Vector3 d =
-                            corners[quadCorners[iCorner + 0]] +
-                            corners[quadCorners[iCorner + 1]] +
-                            corners[quadCorners[iCorner + 2]] +
-                            corners[quadCorners[iCorner + 3]];
-                        int di = d.x < -0.5 ? -1 : d.x > 0.5 ? 1 : 0;
-                        int dj = d.y < -0.5 ? -1 : d.y > 0.5 ? 1 : 0;
-                        int dk = d.z < -0.5 ? -1 : d.z > 0.5 ? 1 : 0;
-                        Vector3 edgeDirection = new Vector3(di, dj, dk);
-                        if (distances[i + 1 + di, j + 1 + dj, k + 1 + dk] < 0) continue;
-                        // 9 edges total surround the 4 vertices 3x3 grid
-                        // for each one find the intersection with the surface
-                        Vector3[,] edges = new Vector3[3, 3];
-                        // if the edge crosses the surface
-                        bool[,] edgeCrosses = new bool[3, 3];
-                        // Check edges in X direction
-                        if (di != 0)
-                        {
-                            Debug.Assert(dj == 0 && dk == 0);
-                            for (int dkE = 0; dkE < 3; dkE++)
-                            {
-                                for (int djE = 0; djE < 3; djE++)
-                                {
-                                    float d0 = distances[i + 1, j + djE, k + dkE];
-                                    float d1 = distances[i + 1 + di, j + djE, k + dkE];
-                                    Vector3 e0 = centre + cornerScale * new Vector3(0, djE - 1, dkE - 1);
-                                    Vector3 e1 = centre + cornerScale * new Vector3(di, djE - 1, dkE - 1);
-                                    edgeCrosses[djE, dkE] = FindEdgeIntersection(out edges[djE, dkE], d0, d1, e0, e1);
-                                }
-                            }
-                        }
-                        // Check edges in Y direction
-                        else if (dj != 0)
-                        {
-                            Debug.Assert(di == 0 && dk == 0);
-                            for (int dkE = 0; dkE < 3; dkE++)
-                            {
-                                for (int diE = 0; diE < 3; diE++)
-                                {
-                                    float d0 = distances[i + diE, j + 1, k + dkE];
-                                    float d1 = distances[i + diE, j + 1 + dj, k + dkE];
-                                    Vector3 e0 = centre + cornerScale * new Vector3(diE - 1, 0, dkE - 1);
-                                    Vector3 e1 = centre + cornerScale * new Vector3(diE - 1, dj, dkE - 1);
-                                    edgeCrosses[diE, dkE] = FindEdgeIntersection(out edges[diE, dkE], d0, d1, e0, e1);
-                                }
-                            }
-                        }
-                        // Check edges in Z direction
-                        else if (dk != 0)
-                        {
-                            Debug.Assert(di == 0 && dj == 0);
-                            for (int djE = 0; djE < 3; djE++)
-                            {
-                                for (int diE = 0; diE < 3; diE++)
-                                {
-                                    float d0 = distances[i + diE, j + djE, k + 1];
-                                    float d1 = distances[i + diE, j + djE, k + 1 + dk];
-                                    Vector3 e0 = centre + cornerScale * new Vector3(diE - 1, djE - 1, 0);
-                                    Vector3 e1 = centre + cornerScale * new Vector3(diE - 1, djE - 1, dk);
-                                    edgeCrosses[diE, djE] = FindEdgeIntersection(out edges[diE, djE], d0, d1, e0, e1);
-                                }
-                            }
-                        }
-                        else
-                        {
-                            throw new UnityException("Quad not situated on edge!");
-                        }
-                        // indices of the face's vertices in the vertices list
-                        int[] indices = new int[4];
-                        for (int iVertex = 0; iVertex < 4; iVertex++)
-                        {
-                            int vdi = corners[quadCorners[iCorner + iVertex]].x < 0 ? 0 : 1;
-                            int vdj = corners[quadCorners[iCorner + iVertex]].y < 0 ? 0 : 1;
-                            int vdk = corners[quadCorners[iCorner + iVertex]].z < 0 ? 0 : 1;
-                            if (cornerVertexIndices[i + vdi, j + vdj, k + vdk] > 0)
-                            {
-                                indices[iVertex] = cornerVertexIndices[i + vdi, j + vdj, k + vdk] - 1;
-                            }
-                            else
-                            {
-                                int dim1Start, dim2Start;
-                                if (di != 0)
-                                {
-                                    dim1Start = vdj;
-                                    dim2Start = vdk;
-                                }
-                                else if (dj != 0)
-                                {
-                                    dim1Start = vdi;
-                                    dim2Start = vdk;
-                                }
-                                else if (dk != 0)
-                                {
-                                    dim1Start = vdi;
-                                    dim2Start = vdj;
-                                }
-                                else
-                                {
-                                    throw new UnityException("Vertex belongs to quad not situated on edge (should never happen)");
-                                }
-                                Vector3 sum = Vector3.zero;
-                                int nEdges = 0;
-                                for (int dim2 = 0; dim2 < 2; dim2++)
-                                {
-                                    for (int dim1 = 0; dim1 < 2; dim1++)
-                                    {
-                                        int a = dim1 + dim1Start;
-                                        if (!edgeCrosses[dim1, dim2]) continue;
-                                        nEdges++;
-                                        sum += edges[dim1, dim2];
-                                    }
-                                }
-                                if (nEdges == 0)
-                                {
-                                    vertices.Add(centre + cornerScale * corners[quadCorners[iCorner + iVertex]]);
-                                }
-                                else
-                                {
-                                    vertices.Add(sum / nEdges);
-                                }
-                                cornerVertexIndices[i + vdi, j + vdj, k + vdk] = firstVertexIdx + 1;
-                                indices[iVertex] = firstVertexIdx;
-                                firstVertexIdx++;
-                            }
-                        }
-                        triangles.Add(indices[0]);
-                        triangles.Add(indices[1]);
-                        triangles.Add(indices[2]);
-                        triangles.Add(indices[0]);
-                        triangles.Add(indices[2]);
-                        triangles.Add(indices[3]);
-                    }
-                }
-            }
-        }
-        // do one round of smoothing, plus calculate normals
-        List<Vector3> normals = new List<Vector3>(vertices.Count);
-        for (int i = 0; i < vertices.Count; i++)
-        {
-            Vector3 normal = Gradient(vertices[i]).normalized;
-            //vertices[i] -= Distance(vertices[i]) * normal;
-            normals.Add(normal);
-        }
-
-        Debug.Log(string.Format("Created mesh with {0} vertices and {1} indices ({2} triangles)", vertices.Count, triangles.Count, triangles.Count / 3));
-
-        mesh.vertices = vertices.ToArray();
-        mesh.triangles = triangles.ToArray();
-        mesh.normals = normals.ToArray();
-        mf.mesh = mesh;
-        */
     }
 
     private static bool FindEdgeIntersection(out Vector3 intersection, float d0, float d1, Vector3 e0, Vector3 e1)

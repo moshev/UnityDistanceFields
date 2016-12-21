@@ -29,9 +29,10 @@
                     v2f o;
                     float4x4 mv = UNITY_MATRIX_MV;
                     float3 v = float3(mv[0].w, mv[1].w, mv[2].w) + input.vertex;
+                    v.z += 1.0f;
                     o.vertex = mul(UNITY_MATRIX_P, float4(v, 1));
                     //o.vertex = mul(UNITY_MATRIX_P, mul(UNITY_MATRIX_MV, input.vertex));
-                    o.objpos = mul(UNITY_MATRIX_T_MV, float4(v, 1));
+                    o.objpos = mul(unity_WorldToObject, mul(UNITY_MATRIX_I_V, float4(v, 1)));
                     return o;
             }
 
@@ -114,7 +115,7 @@
                     float4x4 w2o = unity_WorldToObject;
                     float4x4 o2w = unity_ObjectToWorld;
                     rayresult res;
-                    marchresult mres = march(objpoint - 3 * dir, dir);
+                    marchresult mres = march(objpoint, dir);
                     res.p = mres.p;
                     res.n = -normalize(grad(mres.p));
                     res.distance = mres.distance;
