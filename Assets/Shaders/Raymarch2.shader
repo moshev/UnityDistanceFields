@@ -23,16 +23,27 @@
             struct v2f {
                     float4 vertex : SV_POSITION;
                     float3 objpos : TEXCOORD0;
+                    float3 original : TEXCOORD1;
             };
 
             v2f vert(appdata input) {
                     v2f o;
-                    float4x4 mv = UNITY_MATRIX_MV;
-                    float3 v = float3(mv[0].w, mv[1].w, mv[2].w) + input.vertex;
-                    v.z += 1.0f;
-                    o.vertex = mul(UNITY_MATRIX_P, float4(v, 1));
+                    const float4x4 mTM = transpose(UNITY_MATRIX_M);
+                    const float4x4 mMV = UNITY_MATRIX_MV;
+                    const float4x4 mTMV = transpose(mMV);
+                    const float4x4 mV = transpose(UNITY_MATRIX_I_V);
+                    const float4x4 mITMV = UNITY_MATRIX_IT_MV; // mul(UNITY_MATRIX_M, UNITY_MATRIX_I_V);
+                    const float3 centre = mTM[3].xyz;
+                    const float3 forward = normalize(_WorldSpaceCameraPos - centre);
+                    const float3 cUp = mV[1].xyz;
+                    const float3 right = normalize(cross(forward, cUp));
+                    const float3 up = normalize(cross(right, forward));
+                    float3 v = input.vertex.x * right + input.vertex.y * up;// +2 * forward;// -cForward;
+                    v += centre;
+                    o.vertex = mul(UNITY_MATRIX_P, mul(UNITY_MATRIX_V, float4(v, 1)));
                     //o.vertex = mul(UNITY_MATRIX_P, mul(UNITY_MATRIX_MV, input.vertex));
-                    o.objpos = mul(unity_WorldToObject, mul(UNITY_MATRIX_I_V, float4(v, 1)));
+                    o.objpos = mul(unity_WorldToObject, float4(v, 1));
+                    o.original = input.vertex.xyz;
                     return o;
             }
 
@@ -130,7 +141,8 @@
             output frag(v2f input) {
                 output o;
                 rayresult res;
-#if 1
+#define MODE 0
+#if MODE == 0
                 res = trace(input.objpos);
                 if (!isfinite(res.distance) || abs(res.distance) > EPSILON) {
                         discard;
@@ -142,8 +154,39 @@
                     o.color = float4(abs(res.n), 1);
                     o.depth = screenp.z / screenp.w;
                 }
-#else
+#elif MODE == 1
+                float4 screenp = UnityObjectToClipPos(input.objpos);
+                o.depth = screenp.z / screenp.w;
                 o.color = fixed4(abs(normalize(ObjSpaceViewDir(float4(input.objpos, 1)))), 1);
+#elif MODE == 2
+                float4 screenp = UnityObjectToClipPos(input.objpos);
+                o.depth = screenp.z / screenp.w;
+                o.color = fixed4(normalize(_WorldSpaceCameraPos - UNITY_MATRIX_MV[3].xyz), 1);
+#elif MODE == 3
+                float4 screenp = UnityObjectToClipPos(input.objpos);
+                o.depth = screenp.z / screenp.w;
+                o.color = fixed4((UNITY_MATRIX_V)[0].xyz, 1);
+#elif MODE == 4
+                float4 screenp = UnityObjectToClipPos(input.objpos);
+                o.depth = screenp.z / screenp.w;
+                const float4x4 m = UNITY_MATRIX_M;
+                const float4x4 tm = transpose(m);
+                o.color = fixed4(abs(tm[3].xyz), 1);
+#elif MODE == 5
+                const float4x4 mTM = transpose(UNITY_MATRIX_M);
+                const float4x4 mMV = UNITY_MATRIX_MV;
+                const float4x4 mTMV = transpose(mMV);
+                const float4x4 mV = transpose(UNITY_MATRIX_I_V);
+                const float4x4 mITMV = UNITY_MATRIX_IT_MV; // mul(UNITY_MATRIX_M, UNITY_MATRIX_I_V);
+                const float3 centre = mTM[3].xyz;
+                const float3 forward = normalize(_WorldSpaceCameraPos - centre);
+                const float3 cUp = mV[1].xyz;
+                const float3 right = normalize(cross(forward, cUp));
+                const float3 up = normalize(cross(right, forward));
+                float3 v = input.original.x * right + input.original.y * up;// +2 * forward;// -cForward;
+                float4 screenp = UnityObjectToClipPos(input.objpos);
+                o.depth = screenp.z / screenp.w;
+                o.color = fixed4((v), 1);
 #endif
 
                 /*
