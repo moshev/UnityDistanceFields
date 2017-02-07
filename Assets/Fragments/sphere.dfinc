@@ -1,0 +1,13 @@
+// name = Sphere
+
+// properties
+
+_Radius("Radius", Float) = 1
+
+// cgprogram
+
+float _Radius;
+
+float _dist(float3 p) {
+	return length(p) - _Radius;
+}

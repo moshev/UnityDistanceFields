@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
-public class DEBaseControlsWindow : EditorWindow
+public class DFBaseControlsWindow : EditorWindow
 {
     private DEBase de;
     private ProgressReport operationProgress = new ProgressReport();
@@ -12,7 +12,7 @@ public class DEBaseControlsWindow : EditorWindow
     [MenuItem("Custom/Distance Field Controls")]
     public static void Init()
     {
-        UnityEditor.EditorWindow window = GetWindow<DEBaseControlsWindow>();
+        UnityEditor.EditorWindow window = GetWindow<DFBaseControlsWindow>();
         window.Show();
     }
 

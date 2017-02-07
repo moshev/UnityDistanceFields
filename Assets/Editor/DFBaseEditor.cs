@@ -5,7 +5,7 @@ using UnityEditor;
 using UnityEngine;
 
 [CustomEditor(typeof(DEBase), true)]
-public class DEBaseEditor : Editor
+public class DFBaseEditor : Editor
 {
     public void Awake()
     {

@@ -3,6 +3,7 @@
             _Color("Color", Color) = (1,1,1,1)
             _SphereRadius("Radius", Range(0.01, 0.5)) = 0.2
             _Mix("Mix", Range(0.0, 1.0)) = 0
+            _CanvasSize("CanvasSize", Float) = 1
     }
     SubShader{
             Tags { "RenderType" = "Opaque" }
@@ -26,6 +27,7 @@
                     float3 original : TEXCOORD1;
             };
 
+            float _CanvasSize;
             v2f vert(appdata input) {
                     v2f o;
                     const float4x4 mTM = transpose(UNITY_MATRIX_M);
@@ -38,7 +40,7 @@
                     const float3 cUp = mV[1].xyz;
                     const float3 right = normalize(cross(forward, cUp));
                     const float3 up = normalize(cross(right, forward));
-                    float3 v = input.vertex.x * right + input.vertex.y * up;// +2 * forward;// -cForward;
+                    float3 v = _CanvasSize * input.vertex.x * right + _CanvasSize * input.vertex.y * up + _CanvasSize * forward;// +2 * forward;// -cForward;
                     v += centre;
                     o.vertex = mul(UNITY_MATRIX_P, mul(UNITY_MATRIX_V, float4(v, 1)));
                     //o.vertex = mul(UNITY_MATRIX_P, mul(UNITY_MATRIX_MV, input.vertex));
@@ -81,8 +83,8 @@
                     float b = clamp(0, 1, 1 - _Mix);
                     //return a * distTorus(p, float3(0,0,0), float3(0,1,0), 0.3, 0.1) + b * distCube(p, 0, 0.4);
                     //return a * distTorus(p, float3(0,0,0), float3(0,1,0), 0.3, 0.1) + b * distSphere(p, float3(0,0,0), _SphereRadius);
-                    //return a * distSphere(p, float3(0,0,0), _SphereRadius) + b * distCube(p, 0, 0.4);
-                    return distSphere(p, float3(0,0,0), 0.3);
+                    return a * distSphere(p, float3(0,0,0), _SphereRadius) + b * distCube(p, 0, 0.4);
+                    //return distSphere(p, float3(0,0,0), 0.3);
                     //return a * distMyParaboloid(p) + b * distSphere(p, float3(0,0,0), _SphereRadius);
                     //return a * distMyParaboloid(p) + b * distTorus(p, float3(0,0,0), float3(0,1,0), 0.3, 0.1);
             }

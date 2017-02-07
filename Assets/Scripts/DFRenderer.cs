@@ -5,8 +5,6 @@ using UnityEngine;
 [ExecuteInEditMode]
 public class DFRenderer : MonoBehaviour
 {
-    public Material material;
-
     private static Vector3[] gVertices = new Vector3[]
     {
         new Vector3(-1, -1),
@@ -29,8 +27,6 @@ public class DFRenderer : MonoBehaviour
         0, 2, 3,
     };
 
-    private Renderer renderer;
-
     // Use this for initialization
     private void Start()
     {
@@ -44,20 +40,21 @@ public class DFRenderer : MonoBehaviour
             gameObject.AddComponent<MeshRenderer>();
         }
         GetComponent<MeshFilter>().mesh = mesh;
-        renderer = GetComponent<Renderer>();
-        renderer.material = material;
     }
 
     private void OnEnable()
     {
-        if (renderer)
-        {
-            renderer.material = material;
-        }
     }
 
     // Update is called once per frame
     private void Update()
+    {
+    }
+
+    public void UpdateMaterial()
+    { }
+
+    private void OnGUI()
     {
     }
 }
