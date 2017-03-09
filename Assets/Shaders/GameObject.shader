@@ -1,7 +1,7 @@
-Shader "Unlit/Intersect" {
+Shader "Unlit/GameObject" {
    Properties {
+        _Width_1("Width", Float) = 1
         _Radius_1("Radius", Float) = 1
-        _Radius_2("Radius", Float) = 1
         _CanvasSize("CanvasSize", Float) = 1
     }
     SubShader {
@@ -17,16 +17,17 @@ Shader "Unlit/Intersect" {
 // BEGIN CODE
 /////////////////////
 
-float _Radius_1;
+float _Width_1;
 
 float _dist_1(float3 p) {
-	return length(p) - _Radius_1;
+	float3 q = abs(p) - float3(_Width_1, _Width_1, _Width_1);
+	return max(max(q.x, q.y), q.z);
 }
 
-float _Radius_2;
+float _Radius_1;
 
 float _dist_2(float3 p) {
-	return length(p) - _Radius_2;
+	return length(p) - _Radius_1;
 }
 
 float _dist_3(float3 p) {

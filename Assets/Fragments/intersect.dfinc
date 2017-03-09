@@ -1,0 +1,12 @@
+// name = Intersect
+
+// properties
+
+_A(ChildNode)
+_B(ChildNode)
+
+// cgprogram
+
+float _dist(float3 p) {
+	return max(_A(p), _B(p));
+}

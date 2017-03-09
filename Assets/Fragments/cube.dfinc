@@ -1,0 +1,14 @@
+// name = Cube
+
+// properties
+
+_Width("Width", Float) = 1
+
+// cgprogram
+
+float _Width;
+
+float _dist(float3 p) {
+	float3 q = abs(p) - float3(_Width, _Width, _Width);
+	return max(max(q.x, q.y), q.z);
+}

@@ -1,10 +1,13 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEditor;
 
 [ExecuteInEditMode]
 public class DFRenderer : MonoBehaviour
 {
+    public bool fullScene = false;
+
     private static Vector3[] gVertices = new Vector3[]
     {
         new Vector3(-1, -1),
@@ -49,6 +52,24 @@ public class DFRenderer : MonoBehaviour
     // Update is called once per frame
     private void Update()
     {
+        if (fullScene)
+        {
+            Transform t = transform;
+            Transform c;
+            Camera cur = Camera.main;
+            if (cur != null)
+            {
+                c = cur.transform;
+            }
+            else
+            {
+                SceneView v = SceneView.lastActiveSceneView;
+                cur = v.camera;
+                c = cur.transform;
+            }
+            t.position = c.TransformVector(Vector3.forward);
+            t.rotation = c.rotation;
+        }
     }
 
     public void UpdateMaterial()

@@ -1,7 +1,6 @@
-Shader "Unlit/Intersect" {
+Shader "Unlit/Sphere" {
    Properties {
         _Radius_1("Radius", Float) = 1
-        _Radius_2("Radius", Float) = 1
         _CanvasSize("CanvasSize", Float) = 1
     }
     SubShader {
@@ -23,20 +22,10 @@ float _dist_1(float3 p) {
 	return length(p) - _Radius_1;
 }
 
-float _Radius_2;
-
-float _dist_2(float3 p) {
-	return length(p) - _Radius_2;
-}
-
-float _dist_3(float3 p) {
-	return max(_dist_1(p), _dist_2(p));
-}
-
 /////////////////////
 // END CODE
 /////////////////////
-            #define _DIST_FUNCTION _dist_3
+            #define _DIST_FUNCTION _dist_1
             #include "RaymarchMain.cginc"
             ENDCG
         }

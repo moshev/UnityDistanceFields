@@ -6,18 +6,32 @@ using UnityEngine;
 
 public struct DFNodeProperty
 {
+    public static string CHILD_NODE = "(ChildNode)";
     public string name;
     public string fragment;
+}
+
+public class DFNodeChild
+{
+    public string name;
+    public DFNode node;
+
+    public DFNodeChild(string name, DFNode node)
+    {
+        this.name = name;
+        this.node = node;
+    }
 }
 
 [ExecuteInEditMode]
 public class DFNode : MonoBehaviour
 {
+    public string prevFragmentPath = "";
     public string fragmentPath = "";
     public string nodeName;
-    public DFNode[] children;
+    public List<DFNodeChild> children = new List<DFNodeChild>();
     public string bodyFragment;
-    public DFNodeProperty[] properties;
+    public List<DFNodeProperty> properties;
 
     // Use this for initialization
     private void Start()
@@ -31,11 +45,13 @@ public class DFNode : MonoBehaviour
 
     private string GetFragments(GlobalNameManager nm, List<DFNodeProperty> outProperties, StringBuilder body)
     {
-        foreach (DFNode child in children)
-        {
-            child.GetFragments(nm, outProperties, body);
-        }
         StringBuilder mangledFragment = new StringBuilder(bodyFragment);
+        foreach (DFNodeChild child in children)
+        {
+            string functionName = child.node.GetFragments(nm, outProperties, body);
+            Debug.Log("Replace child " + child.name + " with " + functionName);
+            mangledFragment.Replace(child.name, functionName);
+        }
         foreach (DFNodeProperty property in properties)
         {
             DFNodeProperty mangled = new DFNodeProperty();
@@ -45,7 +61,7 @@ public class DFNode : MonoBehaviour
             mangledFragment.Replace(property.name, mangled.name);
         }
         string distFunction = nm.makeUnique("_dist");
-        mangledFragment.Replace("_dist", distFunction);
+        mangledFragment.Replace("float _dist(", "float " + distFunction + "(");
         body.Append(mangledFragment);
         return distFunction;
     }
