@@ -32,6 +32,7 @@ public class DFNode : MonoBehaviour
     public List<DFNodeChild> children = new List<DFNodeChild>();
     public string bodyFragment;
     public List<DFNodeProperty> properties;
+    public string transformUniform;
 
     // Use this for initialization
     private void Start()
@@ -60,10 +61,27 @@ public class DFNode : MonoBehaviour
             outProperties.Add(mangled);
             mangledFragment.Replace(property.name, mangled.name);
         }
-        string distFunction = nm.makeUnique("_dist");
-        mangledFragment.Replace("float _dist(", "float " + distFunction + "(");
+        transformUniform = nm.makeUnique("_transform");
+        body.Append(string.Format("float3 {0};\n", transformUniform));
+        string distFunction = nm.makeUnique("_dist_xform");
+        string distSub = nm.makeUnique("_dist");
+        mangledFragment.Replace("float _dist(", "float " + distSub + "(");
         body.Append(mangledFragment);
+        body.Append(string.Format(@"
+float {0}(float3 p) {{
+    return {1}(p - {2});
+}}
+", distFunction, distSub, transformUniform));
         return distFunction;
+    }
+
+    public void SetTransformsInMaterial(Material mat)
+    {
+        mat.SetVector(transformUniform, transform.position);
+        foreach (DFNodeChild child in children)
+        {
+            child.node.SetTransformsInMaterial(mat);
+        }
     }
 
     public void CreateShaderAsset(string assetPath)

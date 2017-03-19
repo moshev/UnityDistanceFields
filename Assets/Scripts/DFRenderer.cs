@@ -52,6 +52,9 @@ public class DFRenderer : MonoBehaviour
     // Update is called once per frame
     private void Update()
     {
+        DFNode df = GetComponent<DFNode>();
+        if (!df) return;
+        df.SetTransformsInMaterial(GetComponent<Renderer>().sharedMaterial);
         if (fullScene)
         {
             Transform t = transform;

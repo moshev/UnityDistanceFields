@@ -132,6 +132,14 @@ public class DFNodeEditor : Editor
                 node.children.Add(new DFNodeChild(name, null));
             }
         }
+        else
+        {
+            foreach (DFNodeChild child in node.children)
+            {
+                if (!child.node) continue;
+                ParseFragment(child.node.fragmentPath, child.node);
+            }
+        }
         node.prevFragmentPath = path;
     }
 }

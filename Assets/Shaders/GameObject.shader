@@ -1,4 +1,4 @@
-Shader "Unlit/GameObject" {
+Shader "Unlit/Intersect" {
    Properties {
         _Width_1("Width", Float) = 1
         _Radius_1("Radius", Float) = 1
@@ -16,6 +16,7 @@ Shader "Unlit/GameObject" {
 /////////////////////
 // BEGIN CODE
 /////////////////////
+float3 _transform_1;
 
 float _Width_1;
 
@@ -24,20 +25,34 @@ float _dist_1(float3 p) {
 	return max(max(q.x, q.y), q.z);
 }
 
+float _dist_xform_1(float3 p) {
+    return _dist_1(p - _transform_1);
+}
+float3 _transform_2;
+
 float _Radius_1;
 
 float _dist_2(float3 p) {
 	return length(p) - _Radius_1;
 }
 
+float _dist_xform_2(float3 p) {
+    return _dist_2(p - _transform_2);
+}
+float3 _transform_3;
+
 float _dist_3(float3 p) {
-	return max(_dist_1(p), _dist_2(p));
+	return max(_dist_xform_1(p), _dist_xform_2(p));
+}
+
+float _dist_xform_3(float3 p) {
+    return _dist_3(p - _transform_3);
 }
 
 /////////////////////
 // END CODE
 /////////////////////
-            #define _DIST_FUNCTION _dist_3
+            #define _DIST_FUNCTION _dist_xform_3
             #include "RaymarchMain.cginc"
             ENDCG
         }
