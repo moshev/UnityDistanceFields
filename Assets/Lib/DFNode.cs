@@ -4,6 +4,7 @@ using System.Text;
 using System.IO;
 using UnityEngine;
 
+[System.Serializable]
 public struct DFNodeProperty
 {
     public static string CHILD_NODE = "(ChildNode)";
@@ -11,6 +12,7 @@ public struct DFNodeProperty
     public string fragment;
 }
 
+[System.Serializable]
 public class DFNodeChild
 {
     public string name;
