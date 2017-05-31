@@ -1,4 +1,4 @@
-Shader "Unlit/Intersect" {
+Shader "Unlit/IntersectOld" {
    Properties {
         _Radius_1("Radius", Float) = 1
         _Radius_2("Radius", Float) = 1

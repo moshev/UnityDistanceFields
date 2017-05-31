@@ -1,5 +1,4 @@
-﻿using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Text;
 using System.IO;
 using UnityEngine;
@@ -64,7 +63,8 @@ public class DFNode : MonoBehaviour
             mangledFragment.Replace(property.name, mangled.name);
         }
         transformUniform = nm.makeUnique("_transform");
-        body.Append(string.Format("float3 {0};\n", transformUniform));
+        body.Append(string.Format("float3 {0};", transformUniform));
+        body.Append(System.Environment.NewLine);
         string distFunction = nm.makeUnique("_dist_xform");
         string distSub = nm.makeUnique("_dist");
         mangledFragment.Replace("float _dist(", "float " + distSub + "(");
