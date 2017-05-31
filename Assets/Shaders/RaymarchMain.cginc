@@ -63,7 +63,7 @@ float3 grad(float3 p) {
 		distToObject(p + ez) - distToObject(p - ez));
 }
 
-#define MAXITER 128
+#define MAXITER 256
 struct marchresult {
 	float3 p;
 	float distance;

@@ -1,0 +1,39 @@
+// name = Mandelbulb
+
+// properties
+
+_Power("Power", Float) = 2
+_Iterations("Iterations", Int) = 1
+_Bailout("Bailout limit", Float) = 2
+
+// cgprogram
+
+float _Power;
+int _Iterations;
+float _Bailout;
+
+float _dist(float3 p) {
+	float3 z = p;
+	float dr = 1.0f;
+	float r = 0.0f;
+	for (int i = 0; i < _Iterations; i++)
+	{
+		r = length(z);
+		if (r > _Bailout) break;
+
+		// convert to polar coordinates
+		float theta = acos(z.z / r);
+		float phi = atan2(z.y, z.x);
+		dr = pow(r, _Power - 1.0) * _Power * dr + 1.0f;
+
+		// scale and rotate the point
+		float zr = pow(r, _Power);
+		theta = theta * _Power;
+		phi = phi * _Power;
+
+		// convert back to cartesian coordinates
+		z = zr * float3(sin(theta) * cos(phi), sin(phi) * sin(theta), cos(theta));
+		z += p;
+	}
+	return 0.5 * log(r) * r / dr;
+}
