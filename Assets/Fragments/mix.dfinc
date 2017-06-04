@@ -1,0 +1,16 @@
+// name = Mix
+
+// properties
+
+_Factor("Mix Factor", Float) = 0.5
+_A(ChildNode)
+_B(ChildNode)
+
+// cgprogram
+
+float _Factor;
+
+float _dist(float3 p) {
+	float a = clamp(_Factor, 0.0, 1.0);
+	return (1.0 - a) * _A(p) + a * _B(p);
+}

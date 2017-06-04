@@ -54,7 +54,7 @@ public class DFRenderer : MonoBehaviour
     {
         DFNode df = GetComponent<DFNode>();
         if (!df) return;
-        df.SetTransformsInMaterial(GetComponent<Renderer>().sharedMaterial);
+        df.SetTransformsInMaterial(GetComponent<Renderer>().sharedMaterial, fullScene);
         if (fullScene)
         {
             Transform t = transform;
@@ -71,7 +71,6 @@ public class DFRenderer : MonoBehaviour
                 c = cur.transform;
             }
             t.position = c.TransformVector(Vector3.forward);
-            t.rotation = c.rotation;
         }
     }
 

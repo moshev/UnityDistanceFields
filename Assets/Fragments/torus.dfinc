@@ -1,0 +1,17 @@
+// name = Torus
+
+// properties
+
+_OuterRadius("Outer Radius", Float) = 0.5
+_InnerRadius("Inner Radius", Float) = 0.15
+
+// cgprogram
+float _OuterRadius;
+float _InnerRadius;
+
+float _dist(float3 p) {
+    float z = p.y;
+    float xy2 = dot(p, p);
+    float b = _OuterRadius - sqrt(xy2);
+    return sqrt(b * b + z * z) - _InnerRadius;
+}

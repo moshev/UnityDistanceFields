@@ -77,12 +77,17 @@ float {0}(float3 p) {{
         return distFunction;
     }
 
-    public void SetTransformsInMaterial(Material mat)
+    public void SetTransformsInMaterial(Material mat, bool skipThis)
     {
-        mat.SetVector(transformUniform, transform.position);
+        Vector3 vec = Vector3.zero;
+        if (children.Count == 0 && !skipThis)
+        {
+            vec = transform.position;
+        }
+        mat.SetVector(transformUniform, vec);
         foreach (DFNodeChild child in children)
         {
-            child.node.SetTransformsInMaterial(mat);
+            child.node.SetTransformsInMaterial(mat, false);
         }
     }
 
