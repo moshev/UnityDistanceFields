@@ -4,15 +4,15 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
-public class DFBaseControlsWindow : EditorWindow
+public class DFNodeControlsWindow : EditorWindow
 {
-    private DEBase de;
+    private DFNodeMesher mesher;
     private ProgressReport operationProgress = new ProgressReport();
 
-    [MenuItem("Custom/Distance Field Controls")]
+    [MenuItem("Custom/Distance Field Node Controls")]
     public static void Init()
     {
-        UnityEditor.EditorWindow window = GetWindow<DFBaseControlsWindow>();
+        UnityEditor.EditorWindow window = GetWindow<DFNodeControlsWindow>();
         window.Show();
     }
 
@@ -25,17 +25,25 @@ public class DFBaseControlsWindow : EditorWindow
     {
         GameObject go = Selection.activeGameObject;
         if (go == null) return;
-        de = go.GetComponent<DEBase>();
+        DFNode dn = go.GetComponent<DFNode>();
+        if (dn == null)
+        {
+            mesher = null;
+        }
+        else if (mesher == null || mesher.dn != dn)
+        {
+            mesher = new DFNodeMesher(dn);
+        }
     }
 
     private void OnGUI()
     {
         bool wasEnabled = GUI.enabled;
         ProgressReport.State progressState = operationProgress.CurrentState;
-        if (de == null)
+        if (mesher == null)
         {
             GUI.enabled = false;
-            GUILayout.Label("Please select an object with a DFNode component");
+            GUILayout.Label("Please select an object with a DEBase component");
         }
         else
         {
@@ -47,23 +55,23 @@ public class DFBaseControlsWindow : EditorWindow
         }
         if (GUILayout.Button("Step0 - clear"))
         {
-            de.AlgorithmClear();
+            mesher.AlgorithmClear();
         }
         if (GUILayout.Button("Step1 - calculate distances"))
         {
-            de.AlgorithmCalculateDistances(operationProgress);
+            mesher.AlgorithmCalculateDistances(operationProgress);
         }
         if (GUILayout.Button("Step 2 - find intersecting edges"))
         {
-            de.AlgorithmFindEdgeIntersections(operationProgress);
+            mesher.AlgorithmFindEdgeIntersections(operationProgress);
         }
         if (GUILayout.Button("Step 3 - calculate net vertices"))
         {
-            de.AlgorithmConstructVertices(operationProgress);
+            mesher.AlgorithmConstructVertices(operationProgress);
         }
         if (GUILayout.Button("Step 4 - make mesh"))
         {
-            de.AlgorithmCreateMesh(operationProgress);
+            mesher.AlgorithmCreateMesh(operationProgress);
         }
         GUI.enabled = wasEnabled;
         string label;

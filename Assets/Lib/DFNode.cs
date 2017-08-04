@@ -97,9 +97,10 @@ float {0}(float3 p) {{
         List<DFNodeProperty> properties = new List<DFNodeProperty>();
         StringBuilder bodyBuilder = new StringBuilder();
         string distFunction = GetFragments(nm, properties, bodyBuilder);
+        string shaderName = Path.GetFileNameWithoutExtension(assetPath);        
         using (StreamWriter fout = new StreamWriter(assetPath))
         {
-            fout.WriteLine("Shader \"Unlit/" + nodeName + "\" {");
+            fout.WriteLine("Shader \"Unlit/" + shaderName + "\" {");
             fout.WriteLine("   Properties {");
             foreach (DFNodeProperty property in properties)
             {
