@@ -30,9 +30,14 @@ public class DFNodeControlsWindow : EditorWindow
         {
             mesher = null;
         }
-        else if (mesher == null || mesher.dn != dn)
+        else if (mesher == null)
         {
-            mesher = new DFNodeMesher(dn);
+            mesher = new DFNodeMesher();
+            mesher.dfNode = dn;
+        }
+        else if (mesher.dfNode != dn)
+        {
+            mesher.dfNode = dn;
         }
     }
 

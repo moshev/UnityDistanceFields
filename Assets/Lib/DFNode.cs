@@ -97,7 +97,54 @@ float {0}(float3 p) {{
         List<DFNodeProperty> properties = new List<DFNodeProperty>();
         StringBuilder bodyBuilder = new StringBuilder();
         string distFunction = GetFragments(nm, properties, bodyBuilder);
-        string shaderName = Path.GetFileNameWithoutExtension(assetPath);        
+        string shaderName = Path.GetFileNameWithoutExtension(assetPath);
+        using (StreamWriter fout = new StreamWriter(assetPath))
+        {
+            fout.WriteLine("Shader \"Unlit/" + shaderName + "\" {");
+            fout.WriteLine("   Properties {");
+            foreach (DFNodeProperty property in properties)
+            {
+                fout.Write("        ");
+                fout.Write(property.name);
+                fout.Write(property.fragment);
+                fout.WriteLine();
+            }
+            fout.WriteLine("        _CanvasSize(\"CanvasSize\", Float) = 1");
+            fout.WriteLine("    }");
+            fout.WriteLine("    SubShader {");
+            fout.WriteLine("        Tags { \"RenderType\" = \"Opaque\" }");
+            fout.WriteLine("        LOD 200");
+            fout.WriteLine("        Pass {");
+            fout.WriteLine("            Cull Back");
+            fout.WriteLine("            CGPROGRAM");
+            fout.WriteLine("            #pragma vertex vert");
+            fout.WriteLine("            #pragma fragment frag");
+            fout.WriteLine("            #include \"UnityCG.cginc\"");
+            fout.WriteLine("/////////////////////");
+            fout.WriteLine("// BEGIN CODE");
+            fout.WriteLine("/////////////////////");
+            fout.Write(bodyBuilder);
+            fout.WriteLine();
+            fout.WriteLine("/////////////////////");
+            fout.WriteLine("// END CODE");
+            fout.WriteLine("/////////////////////");
+            fout.WriteLine("            #define _DIST_FUNCTION " + distFunction + "");
+            fout.WriteLine("            #include \"RaymarchMain.cginc\"");
+            fout.WriteLine("            ENDCG");
+            fout.WriteLine("        }");
+            fout.WriteLine("    }");
+            fout.WriteLine("    FallBack \"Diffuse\"");
+            fout.WriteLine("}");
+        }
+    }
+
+    public void CreateComputeAsset(string assetPath)
+    {
+        GlobalNameManager nm = new GlobalNameManager();
+        List<DFNodeProperty> properties = new List<DFNodeProperty>();
+        StringBuilder bodyBuilder = new StringBuilder();
+        string distFunction = GetFragments(nm, properties, bodyBuilder);
+        string shaderName = Path.GetFileNameWithoutExtension(assetPath);
         using (StreamWriter fout = new StreamWriter(assetPath))
         {
             fout.WriteLine("Shader \"Unlit/" + shaderName + "\" {");

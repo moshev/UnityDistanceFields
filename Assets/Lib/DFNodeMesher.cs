@@ -2,14 +2,28 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using UnityEngine;
+using UnityEditor;
 
 public class DFNodeMesher
 {
-    public DFNode dn;
+    public ComputeShader distanceEstimator;
+    private DFNode _dn;
 
-    public DFNodeMesher(DFNode dn)
+    public DFNode dfNode
     {
-        this.dn = dn;
+        get
+        {
+            return _dn;
+        }
+        set
+        {
+            // TODO: magic
+        }
+    }
+
+    public DFNodeMesher()
+    {
     }
 
     public void AlgorithmClear()
