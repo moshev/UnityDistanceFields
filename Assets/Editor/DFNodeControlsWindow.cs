@@ -6,49 +6,40 @@ using UnityEngine;
 
 public class DFNodeControlsWindow : EditorWindow
 {
-    private DFNodeMesher mesher;
     private ProgressReport operationProgress = new ProgressReport();
+    private DFNodeMesher mesher = new DFNodeMesher();
+    public ComputeShader shader;
 
-    [MenuItem("Custom/Distance Field Node Controls")]
+    [MenuItem("Custom/Distance Field Compute Shader Mesher")]
     public static void Init()
     {
         UnityEditor.EditorWindow window = GetWindow<DFNodeControlsWindow>();
         window.Show();
     }
 
-    public void Awake()
+    private void OnEnable()
     {
-        OnSelectionChange();
-    }
-
-    private void OnSelectionChange()
-    {
-        GameObject go = Selection.activeGameObject;
-        if (go == null) return;
-        DFNode dn = go.GetComponent<DFNode>();
-        if (dn == null)
-        {
-            mesher = null;
-        }
-        else if (mesher == null)
-        {
-            mesher = new DFNodeMesher();
-            mesher.dfNode = dn;
-        }
-        else if (mesher.dfNode != dn)
-        {
-            mesher.dfNode = dn;
-        }
+        mesher.InitBuffers();
     }
 
     private void OnGUI()
     {
         bool wasEnabled = GUI.enabled;
         ProgressReport.State progressState = operationProgress.CurrentState;
-        if (mesher == null)
+        ComputeShader selShader = (ComputeShader)EditorGUILayout.ObjectField("Compute shader", shader, typeof(ComputeShader), true);
+        if (selShader != shader || mesher.distanceEstimator != shader)
+        {
+            Debug.Log("Resetting compute shader");
+            shader = selShader;
+            mesher.distanceEstimator = shader;
+            mesher.AlgorithmClear();
+            mesher.InitKernel();
+            operationProgress.CancelProgress();
+        }
+        if (shader == null)
         {
             GUI.enabled = false;
-            GUILayout.Label("Please select an object with a DEBase component");
+            GUILayout.Label("Please select a Compute Shader");
         }
         else
         {

@@ -54,10 +54,15 @@ public class DFNodeEditor : Editor
             node.children[i].node = (DFNode)EditorGUILayout.ObjectField(
                 node.children[i].name, node.children[i].node, typeof(DFNode), true);
         }
-        if (GUILayout.Button("Generate"))
+        if (GUILayout.Button("Generate Pixel Shader"))
         {
             string newpath = EditorUtility.SaveFilePanel("Save as...", "Assets/Shaders", node.name + ".shader", "shader");
             node.CreateShaderAsset(newpath);
+        }
+        if (GUILayout.Button("Generate Compute Shader"))
+        {
+            string newpath = EditorUtility.SaveFilePanel("Save as...", "Assets/Shaders", node.name + ".compute", "compute");
+            node.CreateComputeAsset(newpath);
         }
     }
 

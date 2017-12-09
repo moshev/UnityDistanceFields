@@ -144,44 +144,33 @@ float {0}(float3 p) {{
         List<DFNodeProperty> properties = new List<DFNodeProperty>();
         StringBuilder bodyBuilder = new StringBuilder();
         string distFunction = GetFragments(nm, properties, bodyBuilder);
-        string shaderName = Path.GetFileNameWithoutExtension(assetPath);
         using (StreamWriter fout = new StreamWriter(assetPath))
         {
-            fout.WriteLine("Shader \"Unlit/" + shaderName + "\" {");
-            fout.WriteLine("   Properties {");
-            foreach (DFNodeProperty property in properties)
-            {
-                fout.Write("        ");
-                fout.Write(property.name);
-                fout.Write(property.fragment);
-                fout.WriteLine();
-            }
-            fout.WriteLine("        _CanvasSize(\"CanvasSize\", Float) = 1");
-            fout.WriteLine("    }");
-            fout.WriteLine("    SubShader {");
-            fout.WriteLine("        Tags { \"RenderType\" = \"Opaque\" }");
-            fout.WriteLine("        LOD 200");
-            fout.WriteLine("        Pass {");
-            fout.WriteLine("            Cull Back");
-            fout.WriteLine("            CGPROGRAM");
-            fout.WriteLine("            #pragma vertex vert");
-            fout.WriteLine("            #pragma fragment frag");
-            fout.WriteLine("            #include \"UnityCG.cginc\"");
-            fout.WriteLine("/////////////////////");
-            fout.WriteLine("// BEGIN CODE");
-            fout.WriteLine("/////////////////////");
+            fout.WriteLine("#pragma kernel RaymarchMain");
+            fout.WriteLine("#pragma kernel DistanceMain");
+            fout.WriteLine("#define _DIST_FUNCTION " + distFunction + "");
+            fout.WriteLine("float " + distFunction + "(float3 p);");
+            fout.WriteLine("#include \"RaymarchMainCompute.cginc\"");
+            fout.WriteLine("StructuredBuffer<raycontext> _input;");
+            fout.WriteLine("RWStructuredBuffer<rayresult> _output;");
+            fout.WriteLine("[numthreads(128, 1, 1)]");
+            fout.WriteLine("void RaymarchMain(uint grpIdx : SV_GroupIndex)");
+            fout.WriteLine("{");
+            fout.WriteLine("    rayresult res;");
+            fout.WriteLine("    res = trace(_input[grpIdx]);");
+            fout.WriteLine("    _output[grpIdx] = res;");
+            fout.WriteLine("}");
+            fout.WriteLine("[numthreads(128, 1, 1)]");
+            fout.WriteLine("void DistanceMain(uint grpIdx : SV_GroupIndex)");
+            fout.WriteLine("{");
+            fout.WriteLine("    rayresult res;");
+            fout.WriteLine("    res.p = float3(0, 0, 0);");
+            fout.WriteLine("    res.n = float3(0, 0, 0);");
+            fout.WriteLine("    res.distance = distToObject(_input[grpIdx].p);");
+            fout.WriteLine("    _output[grpIdx] = res;");
+            fout.WriteLine("}");
             fout.Write(bodyBuilder);
             fout.WriteLine();
-            fout.WriteLine("/////////////////////");
-            fout.WriteLine("// END CODE");
-            fout.WriteLine("/////////////////////");
-            fout.WriteLine("            #define _DIST_FUNCTION " + distFunction + "");
-            fout.WriteLine("            #include \"RaymarchMain.cginc\"");
-            fout.WriteLine("            ENDCG");
-            fout.WriteLine("        }");
-            fout.WriteLine("    }");
-            fout.WriteLine("    FallBack \"Diffuse\"");
-            fout.WriteLine("}");
         }
     }
 }
