@@ -1,0 +1,34 @@
+#pragma kernel RaymarchMain
+#pragma kernel DistanceMain
+#define _DIST_FUNCTION _dist_xform_1
+float _dist_xform_1(float3 p);
+#include "RaymarchMainCompute.cginc"
+StructuredBuffer<raycontext> _input;
+RWStructuredBuffer<rayresult> _output;
+[numthreads(128, 1, 1)]
+void RaymarchMain(uint3 dispatchId : SV_DispatchThreadID)
+{
+    rayresult res;
+    res = trace(_input[dispatchId.x]);
+    _output[dispatchId.x] = res;
+}
+[numthreads(128, 1, 1)]
+void DistanceMain(uint3 dispatchId : SV_DispatchThreadID)
+{
+    rayresult res;
+    res.p = float3(0, 0, 0);
+    res.n = float3(0, 0, 0);
+    res.distance = distToObject(_input[dispatchId.x].p);
+	if (res.distance < -1000) res.distance = -1000;
+	if (res.distance > 1000) res.distance = 1000;
+    _output[dispatchId.x] = res;
+}
+float _dist_1(float3 p) {
+	float3 q = abs(p) - float3(0.8, 0.8, 0.8);
+	return max(max(q.x, q.y), q.z);
+}
+
+float _dist_xform_1(float3 p) {
+    return _dist_1(p);
+}
+

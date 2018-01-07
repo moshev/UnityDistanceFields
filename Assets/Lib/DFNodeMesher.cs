@@ -185,7 +185,11 @@ public class DFNodeMesher
 
     public void AlgorithmCalculateDistances(ProgressReport progressReport)
     {
-        StartTask(progressReport, "Calculating distances", TaskCalculateDistances);
+        currentProgress = progressReport;
+        currentProgress.StartProgress("Calculating distances");
+        TaskCalculateDistances();
+        progressReport.EndProgress();
+        //StartTask(progressReport, "Calculating distances", TaskCalculateDistances);
         Debug.LogAssertion("GUI thread: Distance Estimator is null: " + (distanceEstimator == null));
     }
 
@@ -197,6 +201,7 @@ public class DFNodeMesher
         }
         input.SetData(vinput);
         int tgroups = (nInputs + computeThreads - 1) / computeThreads;
+        Debug.Log("Dispatching " + tgroups + " thread groups");
         distanceEstimator.Dispatch(kernelIndex, tgroups, 1, 1);
     }
 
@@ -215,8 +220,13 @@ public class DFNodeMesher
                 for (int i = _i1; i <= _i2; i++)
                 {
                     RayResult res = new RayResult();
+                    //Debug.Log(String.Format("Read from {0} {1} {2} idx {3}", i, j, k, bufIdx));
                     res.ReadFrom(output, bufIdx++);
                     distances[i, j, k] = res.distance;
+                    if ((i + j * gridSize + k * gridSize * gridSize) % 1021 == 0)
+                    {
+                        Debug.Log(String.Format("Distance {0} {1} {2} = {3}", i, j, k, res.distance));
+                    }
                 }
                 _i1 = 0;
             }
@@ -241,21 +251,28 @@ public class DFNodeMesher
             {
                 for (int i = 0; i < gridSize; i++)
                 {
+                    if (iStart < 0) iStart = i;
+                    if (jStart < 0) jStart = j;
+                    if (kStart < 0) kStart = k;
                     RayContext ctx;
                     ctx.p = VectorFromIndices(i, j, k);
+                    if ((i + j * gridSize + k * gridSize * gridSize) % 1021 == 0)
+                    {
+                        Debug.Log(String.Format("World position for {0} {1} {2} is {3} {4} {5}", i, j, k, ctx.p.x, ctx.p.y, ctx.p.z));
+                    }
                     ctx.dir = Vector3.zero;
                     ctx.WriteTo(input, bufferIdx++);
                     if (bufferIdx == bufsz)
                     {
                         InvokeShader(computeInput, computeOutput, input, bufsz);
                         computeOutput.GetData(output);
+                        //Debug.Log(String.Format("Filling from {0} {1} {2} to {3} {4} {5} - {6} elements", iStart, jStart, kStart, i, j, k, bufsz));
                         FillDistances(output, iStart, jStart, kStart, i, j, k);
-                        iStart = i;
-                        jStart = j;
-                        kStart = k;
+                        iStart = -1;
+                        jStart = -1;
+                        kStart = -1;
                         bufferIdx = 0;
                     }
-                    distances[i, j, k] = 0;// Distance(centre);
                 }
             }
             currentProgress.SetProgress((k + 1) / (double)gridSize);
@@ -440,15 +457,13 @@ public class DFNodeMesher
         public volatile int[] triangles;
     }
 
-    public void AlgorithmCreateMesh(ProgressReport progressReport)
+    public void AlgorithmCreateMesh(ProgressReport progressReport, MeshFilter mf)
     {
         if (netVertices.Count > 65000)
         {
             Debug.Log(String.Format("Refusing to create mesh with more than 65k vertices: {0}", netVertices.Count));
             return;
         }
-        // XXX comment for compile
-        MeshFilter mf = null;// GetComponent<MeshFilter>();
         if (mf == null)
         {
             Debug.Log("No mesh filter assigned!");
@@ -537,6 +552,7 @@ public class DFNodeMesher
         {
             // XXX comment for compile
             //normals[i] = Gradient(vertices[i]);
+            normals[i] = Vector3.up;
             currentProgress.SetProgress((iEdge + i + 1) / (double)(edgesCrossingSurface.Count + vertices.Length));
         }
         outResult.vertices = vertices;

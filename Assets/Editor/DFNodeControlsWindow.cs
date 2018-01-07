@@ -67,7 +67,20 @@ public class DFNodeControlsWindow : EditorWindow
         }
         if (GUILayout.Button("Step 4 - make mesh"))
         {
-            mesher.AlgorithmCreateMesh(operationProgress);
+            GameObject go = Selection.activeGameObject;
+            MeshFilter mf = null;
+            if (go != null)
+            {
+                mf = go.GetComponent<MeshFilter>();
+            }
+            if (mf != null)
+            {
+                mesher.AlgorithmCreateMesh(operationProgress, mf);
+            }
+            else
+            {
+                Debug.Log("Please select a game object with a mesh filter");
+            }
         }
         GUI.enabled = wasEnabled;
         string label;

@@ -112,7 +112,7 @@ float {0}(float3 p) {{
             fout.WriteLine("        _CanvasSize(\"CanvasSize\", Float) = 1");
             fout.WriteLine("    }");
             fout.WriteLine("    SubShader {");
-            fout.WriteLine("        Tags { \"RenderType\" = \"Opaque\" }");
+            fout.WriteLine("        Tags { \"RenderType\" = \"Opaque\" \"Queue\" = \"Transparent\" }");
             fout.WriteLine("        LOD 200");
             fout.WriteLine("        Pass {");
             fout.WriteLine("            Cull Back");

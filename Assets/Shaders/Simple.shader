@@ -1,4 +1,4 @@
-Shader "Unlit/GameObject" {
+Shader "Unlit/Simple" {
    Properties {
         _Width_1("Width", Float) = 1
         _CanvasSize("CanvasSize", Float) = 1
