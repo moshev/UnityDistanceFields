@@ -91,6 +91,20 @@ float {0}(float3 p) {{
         }
     }
 
+    public void SetTransformsInComputeShader(ComputeShader shader, bool skipThis)
+    {
+        Vector3 vec = Vector3.zero;
+        if (children.Count == 0 && !skipThis)
+        {
+            vec = transform.position;
+        }
+        shader.SetVector(transformUniform, vec);
+        foreach (DFNodeChild child in children)
+        {
+            child.node.SetTransformsInComputeShader(shader, false);
+        }
+    }
+
     public void CreateShaderAsset(string assetPath)
     {
         GlobalNameManager nm = new GlobalNameManager();
@@ -154,20 +168,22 @@ float {0}(float3 p) {{
             fout.WriteLine("StructuredBuffer<raycontext> _input;");
             fout.WriteLine("RWStructuredBuffer<rayresult> _output;");
             fout.WriteLine("[numthreads(128, 1, 1)]");
-            fout.WriteLine("void RaymarchMain(uint grpIdx : SV_GroupIndex)");
+            fout.WriteLine("void RaymarchMain(uint3 dispatchId : SV_DispatchThreadID)");
             fout.WriteLine("{");
+            fout.WriteLine("    uint arrId = dispatchId.x;");
             fout.WriteLine("    rayresult res;");
-            fout.WriteLine("    res = trace(_input[grpIdx]);");
-            fout.WriteLine("    _output[grpIdx] = res;");
+            fout.WriteLine("    res = trace(_input[arrId]);");
+            fout.WriteLine("    _output[arrId] = res;");
             fout.WriteLine("}");
             fout.WriteLine("[numthreads(128, 1, 1)]");
-            fout.WriteLine("void DistanceMain(uint grpIdx : SV_GroupIndex)");
+            fout.WriteLine("void DistanceMain(uint3 dispatchId : SV_DispatchThreadID)");
             fout.WriteLine("{");
+            fout.WriteLine("    uint arrId = dispatchId.x;");
             fout.WriteLine("    rayresult res;");
             fout.WriteLine("    res.p = float3(0, 0, 0);");
             fout.WriteLine("    res.n = float3(0, 0, 0);");
-            fout.WriteLine("    res.distance = distToObject(_input[grpIdx].p);");
-            fout.WriteLine("    _output[grpIdx] = res;");
+            fout.WriteLine("    res.distance = distToObject(_input[arrId].p);");
+            fout.WriteLine("    _output[arrId] = res;");
             fout.WriteLine("}");
             fout.Write(bodyBuilder);
             fout.WriteLine();
