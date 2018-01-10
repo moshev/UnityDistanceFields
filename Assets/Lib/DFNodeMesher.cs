@@ -68,6 +68,8 @@ internal struct RayResult
 public class DFNodeMesher
 {
     public ComputeShader distanceEstimator;
+    public DFNode rootNode;
+    public Material material; // Material containing shader properties
     public float gridRadius = 8.0f;
 
     public int gridSize = 48;
@@ -155,10 +157,23 @@ public class DFNodeMesher
         }
         distanceEstimator.SetBuffer(kernelIndex, "_input", computeInput);
         distanceEstimator.SetBuffer(kernelIndex, "_output", computeOutput);
+        rootNode.SetTransformsInComputeShader(distanceEstimator, true);
+        int nProperties = ShaderUtil.GetPropertyCount(material.shader);
+        for (int i = 0; i < nProperties; i++)
+        {
+            string name = ShaderUtil.GetPropertyName(material.shader, i);
+            if (name.StartsWith("_transform_")) continue;
+            ShaderUtil.ShaderPropertyType type = ShaderUtil.GetPropertyType(material.shader, i);
+            if (type == ShaderUtil.ShaderPropertyType.Float)
+            {
+                distanceEstimator.SetFloat(name, material.GetFloat(name));
+            }
+        }
     }
 
     public void AlgorithmClear()
     {
+        InitKernel();
         currentStep = AlgorithmStep.NotStarted;
         cornerScale = 2.0f * gridRadius / gridSize;
     }

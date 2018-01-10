@@ -9,6 +9,7 @@ public class DFNodeControlsWindow : EditorWindow
     private ProgressReport operationProgress = new ProgressReport();
     private DFNodeMesher mesher = new DFNodeMesher();
     public ComputeShader shader;
+    public DFRenderer renderer;
 
     [MenuItem("Custom/Distance Field Compute Shader Mesher")]
     public static void Init()
@@ -27,24 +28,34 @@ public class DFNodeControlsWindow : EditorWindow
         bool wasEnabled = GUI.enabled;
         ProgressReport.State progressState = operationProgress.CurrentState;
         ComputeShader selShader = (ComputeShader)EditorGUILayout.ObjectField("Compute shader", shader, typeof(ComputeShader), true);
-        if (selShader != shader || mesher.distanceEstimator != shader)
+        DFRenderer selRenderer = (DFRenderer)EditorGUILayout.ObjectField("DFRenderer", renderer, typeof(DFRenderer), true);
+        MeshRenderer meshRenderer = selRenderer ? selRenderer.gameObject.GetComponent<MeshRenderer>() : null;
+        if (selRenderer != null && meshRenderer == null)
+        {
+            GUILayout.Label("Selected renderer doesn't have a MeshRenderer component!");
+            return;
+        }
+        Material selMaterial = selRenderer.gameObject.GetComponent<MeshRenderer>().material;
+        if (selShader != shader || mesher.distanceEstimator != shader || selRenderer != renderer || mesher.material != selMaterial)
         {
             Debug.Log("Resetting compute shader");
             shader = selShader;
+            renderer = selRenderer;
             mesher.distanceEstimator = shader;
+            mesher.material = selMaterial;
+            mesher.rootNode = selRenderer.gameObject.GetComponent<DFNode>();
             mesher.AlgorithmClear();
             mesher.InitKernel();
             operationProgress.CancelProgress();
         }
-        if (shader == null)
+        if (shader == null || renderer == null)
         {
-            GUI.enabled = false;
-            GUILayout.Label("Please select a Compute Shader");
+            GUILayout.Label("Select a Compute Shader and corresponding DFRenderer");
+            return;
         }
-        else
-        {
-            GUILayout.Label("Choose algorithm step");
-        }
+        mesher.gridSize = EditorGUILayout.IntField("Grid subdivisions", mesher.gridSize);
+        mesher.gridRadius = EditorGUILayout.FloatField("Grid radius", mesher.gridRadius);
+        GUILayout.Label("Choose algorithm step");
         if (progressState.runStatus != ProgressReport.STATE_NOT_STARTED)
         {
             GUI.enabled = false;

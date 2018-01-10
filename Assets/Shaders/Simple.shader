@@ -4,7 +4,7 @@ Shader "Unlit/Simple" {
         _CanvasSize("CanvasSize", Float) = 1
     }
     SubShader {
-        Tags { "RenderType" = "Opaque" }
+        Tags { "RenderType" = "Opaque" "Queue" = "Transparent" }
         LOD 200
         Pass {
             Cull Back

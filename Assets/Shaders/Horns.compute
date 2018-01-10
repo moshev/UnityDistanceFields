@@ -6,20 +6,22 @@ float _dist_xform_5(float3 p);
 StructuredBuffer<raycontext> _input;
 RWStructuredBuffer<rayresult> _output;
 [numthreads(128, 1, 1)]
-void RaymarchMain(uint grpIdx : SV_GroupIndex)
+void RaymarchMain(uint3 dispatchId : SV_DispatchThreadID)
 {
+    uint arrId = dispatchId.x;
     rayresult res;
-    res = trace(_input[grpIdx]);
-    _output[grpIdx] = res;
+    res = trace(_input[arrId]);
+    _output[arrId] = res;
 }
 [numthreads(128, 1, 1)]
-void DistanceMain(uint grpIdx : SV_GroupIndex)
+void DistanceMain(uint3 dispatchId : SV_DispatchThreadID)
 {
+    uint arrId = dispatchId.x;
     rayresult res;
     res.p = float3(0, 0, 0);
     res.n = float3(0, 0, 0);
-    res.distance = distToObject(_input[grpIdx].p);
-    _output[grpIdx] = res;
+    res.distance = distToObject(_input[arrId].p);
+    _output[arrId] = res;
 }
 float3 _transform_1;
 
@@ -34,10 +36,11 @@ float _dist_xform_1(float3 p) {
 }
 float3 _transform_2;
 
-float _Radius_2;
+float _Width_1;
 
 float _dist_2(float3 p) {
-	return length(p) - _Radius_2;
+	float3 q = abs(p) - float3(_Width_1, _Width_1, _Width_1);
+	return max(max(q.x, q.y), q.z);
 }
 
 float _dist_xform_2(float3 p) {

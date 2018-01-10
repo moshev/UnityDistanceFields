@@ -1,7 +1,7 @@
 Shader "Unlit/Horns" {
    Properties {
         _Radius_1("Radius", Float) = 1
-        _Radius_2("Radius", Float) = 1
+        _Width_1("Width", Float) = 1
         _OuterRadius_1("Outer Radius", Float) = 0.5
         _InnerRadius_1("Inner Radius", Float) = 0.15
         _Factor_1("Mix Factor", Float) = 0.5
@@ -32,10 +32,11 @@ float _dist_xform_1(float3 p) {
 }
 float3 _transform_2;
 
-float _Radius_2;
+float _Width_1;
 
 float _dist_2(float3 p) {
-	return length(p) - _Radius_2;
+	float3 q = abs(p) - float3(_Width_1, _Width_1, _Width_1);
+	return max(max(q.x, q.y), q.z);
 }
 
 float _dist_xform_2(float3 p) {
