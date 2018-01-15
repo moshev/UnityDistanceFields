@@ -9,10 +9,6 @@ struct rayresult {
 	float distance;
 };
 
-float distToObject(float3 p) {
-	return _DIST_FUNCTION(p);
-}
-
 #define EPSILON 0.0001
 
 float3 grad(float3 p) {
@@ -20,26 +16,26 @@ float3 grad(float3 p) {
 	float3 ey = float3(0, EPSILON, 0);
 	float3 ez = float3(0, 0, EPSILON);
 	return float3(
-		distToObject(p + ex) - distToObject(p - ex),
-		distToObject(p + ey) - distToObject(p - ey),
-		distToObject(p + ez) - distToObject(p - ez));
+		_DIST_FUNCTION(p + ex) - _DIST_FUNCTION(p - ex),
+		_DIST_FUNCTION(p + ey) - _DIST_FUNCTION(p - ey),
+		_DIST_FUNCTION(p + ez) - _DIST_FUNCTION(p - ez));
 }
 
-#define MAXITER 256
+int maxIters=256;
 struct marchresult {
 	float3 p;
 	float distance;
 };
 marchresult march(float3 p, float3 dir) {
 	float t = 0;
-	float d = distToObject(p);
+	float d = _DIST_FUNCTION(p);
 	float3 q = p;
-	for (int i = 0; i < MAXITER; i++) {
+	for (int i = 0; i < maxIters; i++) {
 		if (abs(d) < EPSILON)
 			break;
 		t += d;
 		q = p + t * dir;
-		d = distToObject(q);
+		d = _DIST_FUNCTION(q);
 	}
 	marchresult mres;
 	mres.p = q;

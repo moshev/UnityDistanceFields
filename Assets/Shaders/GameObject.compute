@@ -20,16 +20,15 @@ void DistanceMain(uint3 dispatchId : SV_DispatchThreadID)
     rayresult res;
     res.p = float3(0, 0, 0);
     res.n = float3(0, 0, 0);
-    res.distance = distToObject(_input[arrId].p);
+    res.distance = _DIST_FUNCTION(_input[arrId].p);
     _output[arrId] = res;
 }
 float3 _transform_1;
 
-float _Width_1;
+float _Radius_1;
 
 float _dist_1(float3 p) {
-	float3 q = abs(p) - float3(_Width_1, _Width_1, _Width_1);
-	return max(max(q.x, q.y), q.z);
+	return length(p) - _Radius_1;
 }
 
 float _dist_xform_1(float3 p) {

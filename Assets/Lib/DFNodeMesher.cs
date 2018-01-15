@@ -62,6 +62,19 @@ internal struct RayResult
         distance = array[7 * i + 6];
     }
 
+    public String DebugDump()
+    {
+        return String.Format("{0},{1},{2},{3},{4},{5},{6}",
+            p.x,
+            p.y,
+            p.z,
+            n.x,
+            n.y,
+            n.z,
+            distance
+            );
+    }
+
     public const int floatSize = 7;
 }
 
@@ -86,10 +99,12 @@ public class DFNodeMesher
     // How many batches of threads to run at once (at most)
     private const int shaderBatches = 16;
 
-    private int kernelIndex;
+    private int kernelDistanceMain;
+    private int kernelRaymarchMain;
 
     private ComputeBuffer computeInput;
     private ComputeBuffer computeOutput;
+    private AutoResetEvent computeEvent = new AutoResetEvent(false);
 
     public enum AlgorithmStep
     {
@@ -150,13 +165,12 @@ public class DFNodeMesher
 
     public void InitKernel()
     {
-        kernelIndex = distanceEstimator.FindKernel("DistanceMain");
-        if (kernelIndex < 0)
+        kernelDistanceMain = distanceEstimator.FindKernel("DistanceMain");
+        kernelRaymarchMain = distanceEstimator.FindKernel("RaymarchMain");
+        if (kernelDistanceMain < 0 || kernelRaymarchMain < 0)
         {
-            throw new Exception("Can't find kernel DistanceMain");
+            throw new Exception("Can't find kernel DistanceMain or RaymarchMain");
         }
-        distanceEstimator.SetBuffer(kernelIndex, "_input", computeInput);
-        distanceEstimator.SetBuffer(kernelIndex, "_output", computeOutput);
         rootNode.SetTransformsInComputeShader(distanceEstimator, true);
         int nProperties = ShaderUtil.GetPropertyCount(material.shader);
         for (int i = 0; i < nProperties; i++)
@@ -200,24 +214,33 @@ public class DFNodeMesher
 
     public void AlgorithmCalculateDistances(ProgressReport progressReport)
     {
-        currentProgress = progressReport;
-        currentProgress.StartProgress("Calculating distances");
-        TaskCalculateDistances();
-        progressReport.EndProgress();
-        //StartTask(progressReport, "Calculating distances", TaskCalculateDistances);
-        Debug.LogAssertion("GUI thread: Distance Estimator is null: " + (distanceEstimator == null));
+        //currentProgress = progressReport;
+        //currentProgress.StartProgress("Calculating distances");
+        //TaskCalculateDistances();
+        //progressReport.EndProgress();
+        StartTask(progressReport, "Calculating distances", TaskCalculateDistances);
     }
 
-    private void InvokeShader(ComputeBuffer input, ComputeBuffer output, float[] vinput, int nInputs)
+    private void InvokeShader(ComputeBuffer input, ComputeBuffer output, float[] vinput, float[] voutput, int nInputs, int kernelIndex, int maxIters = 256)
     {
-        for (int i = nInputs * RayContext.floatSize; i < vinput.Length; i++)
+        currentProgress.EnqueueTask(delegate ()
         {
-            vinput[i] = 0;
-        }
-        input.SetData(vinput);
-        int tgroups = (nInputs + computeThreads - 1) / computeThreads;
-        Debug.Log("Dispatching " + tgroups + " thread groups");
-        distanceEstimator.Dispatch(kernelIndex, tgroups, 1, 1);
+            Debug.Assert(distanceEstimator != null);
+            for (int i = nInputs * RayContext.floatSize; i < vinput.Length; i++)
+            {
+                vinput[i] = 0;
+            }
+            input.SetData(vinput);
+            int tgroups = (nInputs + computeThreads - 1) / computeThreads;
+            //Debug.Log("Dispatching " + tgroups + " thread groups");
+            distanceEstimator.SetInt("maxIters", maxIters);
+            distanceEstimator.SetBuffer(kernelIndex, "_input", computeInput);
+            distanceEstimator.SetBuffer(kernelIndex, "_output", computeOutput);
+            distanceEstimator.Dispatch(kernelIndex, tgroups, 1, 1);
+            computeOutput.GetData(voutput);
+            computeEvent.Set();
+        });
+        computeEvent.WaitOne();
     }
 
     // Fill distances from float that is RayResult output from compute shader in the inclusive range (i1,j1,k1) to (i2,j2,k2)
@@ -240,7 +263,7 @@ public class DFNodeMesher
                     distances[i, j, k] = res.distance;
                     if ((i + j * gridSize + k * gridSize * gridSize) % 1021 == 0)
                     {
-                        Debug.Log(String.Format("Distance {0} {1} {2} = {3}", i, j, k, res.distance));
+                        //Debug.Log(String.Format("Distance {0} {1} {2} = {3}", i, j, k, res.distance));
                     }
                 }
                 _i1 = 0;
@@ -252,7 +275,6 @@ public class DFNodeMesher
     private void TaskCalculateDistances()
     {
         Debug.Assert(currentProgress != null);
-        Debug.LogAssertion("Task thread: Distance Estimator is null: " + (distanceEstimator == null));
         distances = new float[gridSize, gridSize, gridSize];
         // buffer size in number of RayContext instances
         int bufsz = computeThreads * shaderBatches;
@@ -273,14 +295,13 @@ public class DFNodeMesher
                     ctx.p = VectorFromIndices(i, j, k);
                     if ((i + j * gridSize + k * gridSize * gridSize) % 1021 == 0)
                     {
-                        Debug.Log(String.Format("World position for {0} {1} {2} is {3} {4} {5}", i, j, k, ctx.p.x, ctx.p.y, ctx.p.z));
+                        //Debug.Log(String.Format("World position for {0} {1} {2} is {3} {4} {5}", i, j, k, ctx.p.x, ctx.p.y, ctx.p.z));
                     }
                     ctx.dir = Vector3.zero;
                     ctx.WriteTo(input, bufferIdx++);
                     if (bufferIdx == bufsz)
                     {
-                        InvokeShader(computeInput, computeOutput, input, bufsz);
-                        computeOutput.GetData(output);
+                        InvokeShader(computeInput, computeOutput, input, output, bufsz, kernelDistanceMain);
                         //Debug.Log(String.Format("Filling from {0} {1} {2} to {3} {4} {5} - {6} elements", iStart, jStart, kStart, i, j, k, bufsz));
                         FillDistances(output, iStart, jStart, kStart, i, j, k);
                         iStart = -1;
@@ -294,8 +315,7 @@ public class DFNodeMesher
         }
         if (bufferIdx > 0)
         {
-            InvokeShader(computeInput, computeOutput, input, bufferIdx);
-            computeOutput.GetData(output);
+            InvokeShader(computeInput, computeOutput, input, output, bufferIdx, kernelDistanceMain);
             FillDistances(output, iStart, jStart, kStart, gridSize - 1, gridSize - 1, gridSize - 1);
         }
         currentStep = AlgorithmStep.DistanceCalculated;
@@ -306,9 +326,39 @@ public class DFNodeMesher
         StartTask(progressReport, "Finding edge intersections", TaskFindEdgeIntersections);
     }
 
+    public void AdjustAndInsertEdges(float[] shaderOutput, GridEdge[] pendingEdges, GridCoordinateOctree<GridEdge> octree, int nEdges)
+    {
+        for (int i = 0; i < nEdges; i++)
+        {
+            GridEdge e = pendingEdges[i];
+            RayResult res = new RayResult();
+            res.ReadFrom(shaderOutput, i);
+            Vector3 v0 = VectorFromCoordinate(e.c0);
+            Vector3 v1 = VectorFromCoordinate(e.c1);
+            float t = Vector3.Dot(v0 - v1, res.p - v1) / Vector3.Dot(v0 - v1, v0 - v1);
+            if (i % 37 == 0)
+            {
+                Vector3 pold = e.t * v0 + (1 - e.t) * v1;
+                Debug.Log(String.Format("Edge {0}->{1} ({4}->{5}) adjusting t from {2} to {3}, e.p={6}, e.distance={7};{8} res={9}", e.c0, e.c1, e.t, t, v0, v1, pold,
+                    distances[e.c0.i, e.c0.j, e.c0.k], distances[e.c1.i, e.c1.j, e.c1.k], res.DebugDump()));
+            }
+            e.t = t;
+            edgesCrossingSurface.Add(e, e.c0);
+        }
+    }
+
     public void TaskFindEdgeIntersections()
     {
         Debug.Assert(currentProgress != null);
+        // buffer size in number of RayContext instances
+        int bufsz = computeThreads * shaderBatches;
+        // shader input
+        float[] input = new float[bufsz * RayContext.floatSize];
+        // shader output
+        float[] output = new float[bufsz * RayResult.floatSize];
+        // shader output converted to edges
+        GridEdge[] pendingEdges = new GridEdge[bufsz];
+        int bufferIdx = 0;
         edgesCrossingSurface = new GridCoordinateOctree<GridEdge>(
             new GridCoordinate(0, 0, 0), new GridCoordinate(gridSize, gridSize, gridSize));
         for (int k = 0; k < gridSize; k++)
@@ -343,20 +393,27 @@ public class DFNodeMesher
                         Vector3 v0 = VectorFromCoordinate(e.c0);
                         Vector3 v1 = VectorFromCoordinate(e.c1);
                         float t = e.t;
-                        Vector3 p = t * v0 + (1 - t) * v1;
-                        // XXX comment for compile
-                        float d = 0;// Distance(p);
-                        for (int q = 0; q < 4 && Math.Abs(d) > 0.0001; q++)
+                        RayContext ctx;
+                        ctx.p = t * v0 + (1 - t) * v1;
+                        ctx.dir = Vector3.Normalize(v0 - v1);
+                        ctx.WriteTo(input, bufferIdx);
+                        pendingEdges[bufferIdx] = e;
+                        bufferIdx++;
+                        if (bufferIdx == bufsz)
                         {
-                            t += cornerScale * d;
-                            p = t * v0 + (1 - t) * v1;
+                            InvokeShader(computeInput, computeOutput, input, output, bufferIdx, kernelRaymarchMain, 8);
+                            AdjustAndInsertEdges(output, pendingEdges, edgesCrossingSurface, bufferIdx);
+                            bufferIdx = 0;
                         }
-                        e.t = t;
-                        edgesCrossingSurface.Add(e, e.c0);
                     }
                 }
             }
             currentProgress.SetProgress((k + 1) / (double)gridSize);
+        }
+        if (bufferIdx > 0)
+        {
+            InvokeShader(computeInput, computeOutput, input, output, bufferIdx, kernelRaymarchMain, 8);
+            AdjustAndInsertEdges(output, pendingEdges, edgesCrossingSurface, bufferIdx);
         }
         currentStep = AlgorithmStep.EdgeIntersectionsFound;
     }

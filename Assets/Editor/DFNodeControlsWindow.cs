@@ -30,12 +30,17 @@ public class DFNodeControlsWindow : EditorWindow
         ComputeShader selShader = (ComputeShader)EditorGUILayout.ObjectField("Compute shader", shader, typeof(ComputeShader), true);
         DFRenderer selRenderer = (DFRenderer)EditorGUILayout.ObjectField("DFRenderer", renderer, typeof(DFRenderer), true);
         MeshRenderer meshRenderer = selRenderer ? selRenderer.gameObject.GetComponent<MeshRenderer>() : null;
+        if (selShader == null || selRenderer == null)
+        {
+            GUILayout.Label("Select a Compute Shader and corresponding DFRenderer");
+            return;
+        }
         if (selRenderer != null && meshRenderer == null)
         {
             GUILayout.Label("Selected renderer doesn't have a MeshRenderer component!");
             return;
         }
-        Material selMaterial = selRenderer.gameObject.GetComponent<MeshRenderer>().material;
+        Material selMaterial = selRenderer.gameObject.GetComponent<MeshRenderer>().sharedMaterial;
         if (selShader != shader || mesher.distanceEstimator != shader || selRenderer != renderer || mesher.material != selMaterial)
         {
             Debug.Log("Resetting compute shader");
@@ -96,6 +101,18 @@ public class DFNodeControlsWindow : EditorWindow
         GUI.enabled = wasEnabled;
         string label;
         string message;
+        while (true)
+        {
+            try
+            {
+                operationProgress.RunQueuedTasks();
+                break;
+            }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
+            }
+        }
         if (progressState.runStatus != ProgressReport.STATE_NOT_STARTED)
         {
             switch (progressState.runStatus)

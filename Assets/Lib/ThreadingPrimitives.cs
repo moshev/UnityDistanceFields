@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading;
 
 /// <summary>
@@ -33,6 +34,11 @@ public class ProgressReport
     public delegate void MainThreadCallback();
 
     private MainThreadCallback callback;
+
+    /// <summary>
+    ///  Tasks executed once per tick in the GUI
+    /// </summary>
+    private Stack<MainThreadCallback> queuedTasks = new Stack<MainThreadCallback>();
 
     private int wasChanged = 0;
 
@@ -120,6 +126,47 @@ public class ProgressReport
         {
             callback();
             callback = null;
+        }
+    }
+
+    public void RunQueuedTasks()
+    {
+        Monitor.Enter(queuedTasks);
+        try
+        {
+            while (true)
+            {
+                MainThreadCallback task;
+                try
+                {
+                    task = queuedTasks.Pop();
+                }
+                catch (InvalidOperationException)
+                {
+                    break;
+                }
+                task();
+            }
+        }
+        finally
+        {
+            Interlocked.Increment(ref wasChanged);
+            Monitor.Exit(queuedTasks);
+        }
+    }
+
+    public void EnqueueTask(MainThreadCallback task)
+    {
+        if (task == null) return;
+        Monitor.Enter(queuedTasks);
+        try
+        {
+            queuedTasks.Push(task);
+        }
+        finally
+        {
+            Interlocked.Increment(ref wasChanged);
+            Monitor.Exit(queuedTasks);
         }
     }
 }

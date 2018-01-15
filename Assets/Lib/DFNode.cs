@@ -182,7 +182,7 @@ float {0}(float3 p) {{
             fout.WriteLine("    rayresult res;");
             fout.WriteLine("    res.p = float3(0, 0, 0);");
             fout.WriteLine("    res.n = float3(0, 0, 0);");
-            fout.WriteLine("    res.distance = distToObject(_input[arrId].p);");
+            fout.WriteLine("    res.distance = _DIST_FUNCTION(_input[arrId].p);");
             fout.WriteLine("    _output[arrId] = res;");
             fout.WriteLine("}");
             fout.Write(bodyBuilder);
