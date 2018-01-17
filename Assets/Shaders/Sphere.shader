@@ -1,6 +1,6 @@
-Shader "Unlit/GameObject" {
+Shader "Unlit/Sphere" {
    Properties {
-        _Width_1("Width", Float) = 1
+        _Radius_1("Radius", Float) = 1
         _CanvasSize("CanvasSize", Float) = 1
     }
     SubShader {
@@ -19,15 +19,14 @@ Shader "Unlit/GameObject" {
 float3 _translation_1;
 float4 _rotation_1;
 
-float _Width_1;
+float _Radius_1;
 
 float _dist_1(float3 p) {
-	float3 q = abs(p) - float3(_Width_1, _Width_1, _Width_1);
-	return max(max(q.x, q.y), q.z);
+	return length(p) - _Radius_1;
 }
 
 float _dist_xform_1(float3 p) {
-    return _dist_1(qrot(qinv(_rotation_1), p) - _translation_1);
+    return _dist_1(qrot(qinv(_rotation_1), p - _translation_1));
 }
 
 /////////////////////

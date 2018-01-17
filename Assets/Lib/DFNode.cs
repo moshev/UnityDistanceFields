@@ -33,7 +33,8 @@ public class DFNode : MonoBehaviour
     public List<DFNodeChild> children = new List<DFNodeChild>();
     public string bodyFragment;
     public List<DFNodeProperty> properties;
-    public string transformUniform;
+    public string translationUniform;
+	public string quaternionUniform;
 
     // Use this for initialization
     private void Start()
@@ -62,8 +63,11 @@ public class DFNode : MonoBehaviour
             outProperties.Add(mangled);
             mangledFragment.Replace(property.name, mangled.name);
         }
-        transformUniform = nm.makeUnique("_transform");
-        body.Append(string.Format("float3 {0};", transformUniform));
+        translationUniform = nm.makeUnique("_translation");
+		quaternionUniform = nm.makeUnique("_rotation");
+        body.Append(string.Format("float3 {0};", translationUniform));
+        body.Append(System.Environment.NewLine);
+		body.Append(string.Format("float4 {0};", quaternionUniform));
         body.Append(System.Environment.NewLine);
         string distFunction = nm.makeUnique("_dist_xform");
         string distSub = nm.makeUnique("_dist");
@@ -71,20 +75,32 @@ public class DFNode : MonoBehaviour
         body.Append(mangledFragment);
         body.Append(string.Format(@"
 float {0}(float3 p) {{
-    return {1}(p - {2});
+    return {1}(qrot(qinv({2}), p - {3}));
 }}
-", distFunction, distSub, transformUniform));
+", distFunction, distSub, quaternionUniform, translationUniform));
         return distFunction;
     }
 
     public void SetTransformsInMaterial(Material mat, bool skipThis)
     {
-        Vector3 vec = Vector3.zero;
-        if (children.Count == 0 && !skipThis)
+        if (children.Count == 0)
         {
-            vec = transform.position;
+			Vector3 vec;
+			Quaternion q;
+			if (skipThis)
+			{
+				vec = Vector3.zero;
+				q = Quaternion.identity;
+			}
+			else
+			{
+				vec = transform.position;
+				q = transform.rotation;
+			}
+			Vector4 qv = new Vector4(q.x, q.y, q.z, q.w);
+			mat.SetVector(translationUniform, vec);
+			mat.SetVector(quaternionUniform, qv);
         }
-        mat.SetVector(transformUniform, vec);
         foreach (DFNodeChild child in children)
         {
             child.node.SetTransformsInMaterial(mat, false);
@@ -93,12 +109,24 @@ float {0}(float3 p) {{
 
     public void SetTransformsInComputeShader(ComputeShader shader, bool skipThis)
     {
-        Vector3 vec = Vector3.zero;
-        if (children.Count == 0 && !skipThis)
+        if (children.Count == 0)
         {
-            vec = transform.position;
+			Vector3 vec;
+			Quaternion q;
+			if (skipThis)
+			{
+				vec = Vector3.zero;
+				q = Quaternion.identity;
+			}
+			else
+			{
+				vec = transform.position;
+				q = transform.rotation;
+			}
+			Vector4 qv = new Vector4(q.x, q.y, q.z, q.w);
+			shader.SetVector(translationUniform, vec);
+			shader.SetVector(quaternionUniform, qv);
         }
-        shader.SetVector(transformUniform, vec);
         foreach (DFNodeChild child in children)
         {
             child.node.SetTransformsInComputeShader(shader, false);
@@ -134,6 +162,7 @@ float {0}(float3 p) {{
             fout.WriteLine("            #pragma vertex vert");
             fout.WriteLine("            #pragma fragment frag");
             fout.WriteLine("            #include \"UnityCG.cginc\"");
+            fout.WriteLine("            #include \"RaymarchUtils.cginc\"");
             fout.WriteLine("/////////////////////");
             fout.WriteLine("// BEGIN CODE");
             fout.WriteLine("/////////////////////");
@@ -164,6 +193,7 @@ float {0}(float3 p) {{
             fout.WriteLine("#pragma kernel DistanceMain");
             fout.WriteLine("#define _DIST_FUNCTION " + distFunction + "");
             fout.WriteLine("float " + distFunction + "(float3 p);");
+            fout.WriteLine("#include \"RaymarchUtils.cginc\"");
             fout.WriteLine("#include \"RaymarchMainCompute.cginc\"");
             fout.WriteLine("StructuredBuffer<raycontext> _input;");
             fout.WriteLine("RWStructuredBuffer<rayresult> _output;");

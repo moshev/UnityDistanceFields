@@ -16,10 +16,12 @@ Shader "Unlit/Horns" {
             #pragma vertex vert
             #pragma fragment frag
             #include "UnityCG.cginc"
+            #include "RaymarchUtils.cginc"
 /////////////////////
 // BEGIN CODE
 /////////////////////
-float3 _transform_1;
+float3 _translation_1;
+float4 _rotation_1;
 
 float _Radius_1;
 
@@ -28,9 +30,10 @@ float _dist_1(float3 p) {
 }
 
 float _dist_xform_1(float3 p) {
-    return _dist_1(p - _transform_1);
+    return _dist_1(qrot(qinv(_rotation_1), p - _translation_1));
 }
-float3 _transform_2;
+float3 _translation_2;
+float4 _rotation_2;
 
 float _Width_1;
 
@@ -40,18 +43,20 @@ float _dist_2(float3 p) {
 }
 
 float _dist_xform_2(float3 p) {
-    return _dist_2(p - _transform_2);
+    return _dist_2(qrot(qinv(_rotation_2), p - _translation_2));
 }
-float3 _transform_3;
+float3 _translation_3;
+float4 _rotation_3;
 
 float _dist_3(float3 p) {
 	return max(_dist_xform_1(p), _dist_xform_2(p));
 }
 
 float _dist_xform_3(float3 p) {
-    return _dist_3(p - _transform_3);
+    return _dist_3(qrot(qinv(_rotation_3), p - _translation_3));
 }
-float3 _transform_4;
+float3 _translation_4;
+float4 _rotation_4;
 
 float _OuterRadius_1;
 float _InnerRadius_1;
@@ -64,9 +69,10 @@ float _dist_4(float3 p) {
 }
 
 float _dist_xform_4(float3 p) {
-    return _dist_4(p - _transform_4);
+    return _dist_4(qrot(qinv(_rotation_4), p) - _translation_4);
 }
-float3 _transform_5;
+float3 _translation_5;
+float4 _rotation_5;
 
 float _Factor_1;
 
@@ -76,7 +82,7 @@ float _dist_5(float3 p) {
 }
 
 float _dist_xform_5(float3 p) {
-    return _dist_5(p - _transform_5);
+    return _dist_5(qrot(qinv(_rotation_5), p - _translation_5));
 }
 
 /////////////////////
