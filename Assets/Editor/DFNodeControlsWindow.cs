@@ -26,21 +26,25 @@ public class DFNodeControlsWindow : EditorWindow
     private void OnGUI()
     {
         bool wasEnabled = GUI.enabled;
-        ProgressReport.State progressState = operationProgress.CurrentState;
+		bool error = false;
+		ProgressReport.State progressState = operationProgress.CurrentState;
         ComputeShader selShader = (ComputeShader)EditorGUILayout.ObjectField("Compute shader", shader, typeof(ComputeShader), true);
         DFRenderer selRenderer = (DFRenderer)EditorGUILayout.ObjectField("DFRenderer", renderer, typeof(DFRenderer), true);
         MeshRenderer meshRenderer = selRenderer ? selRenderer.gameObject.GetComponent<MeshRenderer>() : null;
-        if (selShader == null || selRenderer == null)
-        {
-            GUILayout.Label("Select a Compute Shader and corresponding DFRenderer");
-            return;
-        }
         if (selRenderer != null && meshRenderer == null)
         {
+			error = true;
             GUILayout.Label("Selected renderer doesn't have a MeshRenderer component!");
-            return;
         }
-        Material selMaterial = selRenderer.gameObject.GetComponent<MeshRenderer>().sharedMaterial;
+		Material selMaterial = null;
+		try
+		{
+			selMaterial = selRenderer.gameObject.GetComponent<MeshRenderer>().sharedMaterial;
+		}
+		catch (NullReferenceException ignore)
+		{
+			// ignore
+		}
         if (selShader != shader || mesher.distanceEstimator != shader || selRenderer != renderer || mesher.material != selMaterial)
         {
             Debug.Log("Resetting compute shader");
@@ -55,13 +59,13 @@ public class DFNodeControlsWindow : EditorWindow
         }
         if (shader == null || renderer == null)
         {
+			error = true;
             GUILayout.Label("Select a Compute Shader and corresponding DFRenderer");
-            return;
         }
         mesher.gridSize = EditorGUILayout.IntField("Grid subdivisions", mesher.gridSize);
         mesher.gridRadius = EditorGUILayout.FloatField("Grid radius", mesher.gridRadius);
         GUILayout.Label("Choose algorithm step");
-        if (progressState.runStatus != ProgressReport.STATE_NOT_STARTED)
+        if (error || progressState.runStatus != ProgressReport.STATE_NOT_STARTED)
         {
             GUI.enabled = false;
         }
