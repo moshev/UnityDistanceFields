@@ -47,14 +47,34 @@ public class DFNodeControlsWindow : EditorWindow
 		}
         if (selShader != shader || mesher.distanceEstimator != shader || selRenderer != renderer || mesher.material != selMaterial)
         {
-            Debug.Log("Resetting compute shader");
-            shader = selShader;
-            renderer = selRenderer;
-            mesher.distanceEstimator = shader;
-            mesher.material = selMaterial;
-            mesher.rootNode = selRenderer.gameObject.GetComponent<DFNode>();
-            mesher.AlgorithmClear();
-            mesher.InitKernel();
+			bool error2 = false;
+			try
+			{
+            	Debug.Log("Resetting compute shader");
+            	shader = selShader;
+            	renderer = selRenderer;
+            	mesher.distanceEstimator = shader;
+            	mesher.material = selMaterial;
+            	mesher.rootNode = selRenderer.gameObject.GetComponent<DFNode>();
+            	mesher.AlgorithmClear();
+            	mesher.InitKernel();
+			}
+			catch (MissingReferenceException e)
+			{
+				error2 = true;
+			}
+			catch (NullReferenceException e)
+			{
+				error2 = true;
+			}
+			if (error2)
+			{
+				shader = null;
+				renderer = null;
+				mesher.distanceEstimator = null;
+				mesher.material = null;
+				mesher.rootNode = null;
+			}
             operationProgress.CancelProgress();
         }
         if (shader == null || renderer == null)
