@@ -26,60 +26,52 @@ public class DFNodeControlsWindow : EditorWindow
     private void OnGUI()
     {
         bool wasEnabled = GUI.enabled;
-		bool error = false;
-		ProgressReport.State progressState = operationProgress.CurrentState;
+        bool error = false;
+        ProgressReport.State progressState = operationProgress.CurrentState;
         ComputeShader selShader = (ComputeShader)EditorGUILayout.ObjectField("Compute shader", shader, typeof(ComputeShader), true);
         DFRenderer selRenderer = (DFRenderer)EditorGUILayout.ObjectField("DFRenderer", renderer, typeof(DFRenderer), true);
         MeshRenderer meshRenderer = selRenderer ? selRenderer.gameObject.GetComponent<MeshRenderer>() : null;
         if (selRenderer != null && meshRenderer == null)
         {
-			error = true;
+            error = true;
             GUILayout.Label("Selected renderer doesn't have a MeshRenderer component!");
         }
-		Material selMaterial = null;
-		try
-		{
-			selMaterial = selRenderer.gameObject.GetComponent<MeshRenderer>().sharedMaterial;
-		}
-		catch (NullReferenceException ignore)
-		{
-			// ignore
-		}
+        Material selMaterial = null;
+        try
+        {
+            selMaterial = selRenderer.gameObject.GetComponent<MeshRenderer>().sharedMaterial;
+        }
+        catch (NullReferenceException ignore)
+        {
+            // ignore
+        }
         if (selShader != shader || mesher.distanceEstimator != shader || selRenderer != renderer || mesher.material != selMaterial)
         {
-			bool error2 = false;
-			try
-			{
-            	Debug.Log("Resetting compute shader");
-            	shader = selShader;
-            	renderer = selRenderer;
-            	mesher.distanceEstimator = shader;
-            	mesher.material = selMaterial;
-            	mesher.rootNode = selRenderer.gameObject.GetComponent<DFNode>();
-            	mesher.AlgorithmClear();
-            	mesher.InitKernel();
-			}
-			catch (MissingReferenceException e)
-			{
-				error2 = true;
-			}
-			catch (NullReferenceException e)
-			{
-				error2 = true;
-			}
-			if (error2)
-			{
-				shader = null;
-				renderer = null;
-				mesher.distanceEstimator = null;
-				mesher.material = null;
-				mesher.rootNode = null;
-			}
+            bool error2 = false;
+            try
+            {
+                Debug.Log("Resetting compute shader");
+                shader = selShader;
+                renderer = selRenderer;
+                mesher.distanceEstimator = shader;
+                mesher.material = selMaterial;
+                mesher.rootNode = selRenderer.gameObject.GetComponent<DFNode>();
+                mesher.AlgorithmClear();
+                mesher.InitKernel();
+            }
+            catch (MissingReferenceException e)
+            {
+                error2 = true;
+            }
+            catch (NullReferenceException e)
+            {
+                error2 = true;
+            }
             operationProgress.CancelProgress();
         }
         if (shader == null || renderer == null)
         {
-			error = true;
+            error = true;
             GUILayout.Label("Select a Compute Shader and corresponding DFRenderer");
         }
         mesher.gridSize = EditorGUILayout.IntField("Grid subdivisions", mesher.gridSize);

@@ -34,7 +34,7 @@ public class DFNode : MonoBehaviour
     public string bodyFragment;
     public List<DFNodeProperty> properties;
     public string translationUniform;
-	public string quaternionUniform;
+    public string quaternionUniform;
 
     // Use this for initialization
     private void Start()
@@ -46,38 +46,63 @@ public class DFNode : MonoBehaviour
     {
     }
 
-    private string GetFragments(GlobalNameManager nm, List<DFNodeProperty> outProperties, StringBuilder body)
+    private string GetFragments(GlobalNameManager nm, List<DFNodeProperty> outProperties, StringBuilder body, bool lockTransform = false, Material matProps = null)
     {
         StringBuilder mangledFragment = new StringBuilder(bodyFragment);
         foreach (DFNodeChild child in children)
         {
-            string functionName = child.node.GetFragments(nm, outProperties, body);
+            string functionName = child.node.GetFragments(nm, outProperties, body, lockTransform, matProps);
             Debug.Log("Replace child " + child.name + " with " + functionName);
             mangledFragment.Replace(child.name, functionName);
         }
-        foreach (DFNodeProperty property in properties)
-        {
-            DFNodeProperty mangled = new DFNodeProperty();
-            mangled.name = nm.makeUnique(property.name);
-            mangled.fragment = property.fragment;
-            outProperties.Add(mangled);
-            mangledFragment.Replace(property.name, mangled.name);
-        }
         translationUniform = nm.makeUnique("_translation");
-		quaternionUniform = nm.makeUnique("_rotation");
-        body.Append(string.Format("float3 {0};", translationUniform));
-        body.Append(System.Environment.NewLine);
-		body.Append(string.Format("float4 {0};", quaternionUniform));
-        body.Append(System.Environment.NewLine);
+        quaternionUniform = nm.makeUnique("_rotation");
+        if (lockTransform)
+        {
+            foreach (DFNodeProperty property in properties)
+            {
+                string mangledName = nm.makeUnique(property.name);
+                float value = matProps.GetFloat(mangledName);
+                mangledFragment.Replace("float " + property.name + ";", "");
+                mangledFragment.Replace(property.name, value.ToString());
+            }
+        }
+        else
+        {
+            foreach (DFNodeProperty property in properties)
+            {
+                DFNodeProperty mangled = new DFNodeProperty();
+                mangled.name = nm.makeUnique(property.name);
+                mangled.fragment = property.fragment;
+                outProperties.Add(mangled);
+                mangledFragment.Replace(property.name, mangled.name);
+            }
+            body.Append(string.Format("float3 {0};", translationUniform));
+            body.Append(System.Environment.NewLine);
+            body.Append(string.Format("float4 {0};", quaternionUniform));
+            body.Append(System.Environment.NewLine);
+        }
         string distFunction = nm.makeUnique("_dist_xform");
         string distSub = nm.makeUnique("_dist");
         mangledFragment.Replace("float _dist(", "float " + distSub + "(");
         body.Append(mangledFragment);
+        string quaternionValue, translationValue;
+        if (lockTransform)
+        {
+            Transform xform = gameObject.transform;
+            translationValue = string.Format("float3({0},{1},{2})", xform.position.x, xform.position.y, xform.position.z);
+            quaternionValue = string.Format("float4({0},{1},{2},{3})", xform.rotation.x, xform.rotation.y, xform.rotation.z, xform.rotation.w);
+        }
+        else
+        {
+            quaternionValue = quaternionUniform;
+            translationValue = translationUniform;
+        }
         body.Append(string.Format(@"
 float {0}(float3 p) {{
     return {1}(qrot(qinv({2}), p - {3}));
 }}
-", distFunction, distSub, quaternionUniform, translationUniform));
+", distFunction, distSub, quaternionValue, translationValue));
         return distFunction;
     }
 
@@ -85,21 +110,21 @@ float {0}(float3 p) {{
     {
         if (children.Count == 0)
         {
-			Vector3 vec;
-			Quaternion q;
-			if (skipThis)
-			{
-				vec = Vector3.zero;
-				q = Quaternion.identity;
-			}
-			else
-			{
-				vec = transform.position;
-				q = transform.rotation;
-			}
-			Vector4 qv = new Vector4(q.x, q.y, q.z, q.w);
-			mat.SetVector(translationUniform, vec);
-			mat.SetVector(quaternionUniform, qv);
+            Vector3 vec;
+            Quaternion q;
+            if (skipThis)
+            {
+                vec = Vector3.zero;
+                q = Quaternion.identity;
+            }
+            else
+            {
+                vec = transform.position;
+                q = transform.rotation;
+            }
+            Vector4 qv = new Vector4(q.x, q.y, q.z, q.w);
+            mat.SetVector(translationUniform, vec);
+            mat.SetVector(quaternionUniform, qv);
         }
         foreach (DFNodeChild child in children)
         {
@@ -111,21 +136,21 @@ float {0}(float3 p) {{
     {
         if (children.Count == 0)
         {
-			Vector3 vec;
-			Quaternion q;
-			if (skipThis)
-			{
-				vec = Vector3.zero;
-				q = Quaternion.identity;
-			}
-			else
-			{
-				vec = transform.position;
-				q = transform.rotation;
-			}
-			Vector4 qv = new Vector4(q.x, q.y, q.z, q.w);
-			shader.SetVector(translationUniform, vec);
-			shader.SetVector(quaternionUniform, qv);
+            Vector3 vec;
+            Quaternion q;
+            if (skipThis)
+            {
+                vec = Vector3.zero;
+                q = Quaternion.identity;
+            }
+            else
+            {
+                vec = transform.position;
+                q = transform.rotation;
+            }
+            Vector4 qv = new Vector4(q.x, q.y, q.z, q.w);
+            shader.SetVector(translationUniform, vec);
+            shader.SetVector(quaternionUniform, qv);
         }
         foreach (DFNodeChild child in children)
         {
@@ -175,6 +200,59 @@ float {0}(float3 p) {{
             fout.WriteLine("            #include \"RaymarchMain.cginc\"");
             fout.WriteLine("            ENDCG");
             fout.WriteLine("        }");
+            fout.WriteLine("    }");
+            fout.WriteLine("    FallBack \"Diffuse\"");
+            fout.WriteLine("}");
+        }
+    }
+
+    /// <summary>
+    /// Create a tesselated surface shader.
+    /// </summary>
+    /// <param name="assetPath">Output file path</param>
+    /// <param name="material">Material from which to take parameter values</param>
+    public void CreateTessellationShader(string assetPath, Material material)
+    {
+        GlobalNameManager nm = new GlobalNameManager();
+        List<DFNodeProperty> properties = new List<DFNodeProperty>();
+        StringBuilder bodyBuilder = new StringBuilder();
+        string distFunction = GetFragments(nm, properties, bodyBuilder, true, material);
+        string shaderName = Path.GetFileNameWithoutExtension(assetPath);
+        using (StreamWriter fout = new StreamWriter(assetPath))
+        {
+            fout.WriteLine("Shader \"Surface/" + shaderName + "\" {");
+            fout.WriteLine("   Properties {");
+            foreach (DFNodeProperty property in properties)
+            {
+                fout.Write("        ");
+                fout.Write(property.name);
+                fout.Write(property.fragment);
+                fout.WriteLine();
+            }
+            fout.WriteLine("        _EdgeLength (\"Tessellation edge Length\", Range(2,50)) = 15");
+            fout.WriteLine("        _MainTex (\"Main texture\", 2D) = \"white\" {}");
+            fout.WriteLine("        _Color (\"Color\", color) = (1,1,1,0)");
+            fout.WriteLine("        _Specular (\"Specular\", Range(0,1)) = 0.5");
+            fout.WriteLine("    }");
+            fout.WriteLine("    SubShader {");
+            fout.WriteLine("        Tags { \"RenderType\" = \"Opaque\" }");
+            fout.WriteLine("        LOD 200");
+            fout.WriteLine("        CGPROGRAM");
+            fout.WriteLine("        #pragma surface surf BlinnPhong addshadow fullforwardshadows vertex:disp tessellate:tess nolightmap");
+            fout.WriteLine("        #pragma target 4.6");
+            fout.WriteLine("        #include \"Tessellation.cginc\"");
+            fout.WriteLine("        #include \"RaymarchUtils.cginc\"");
+            fout.WriteLine("/////////////////////");
+            fout.WriteLine("// BEGIN CODE");
+            fout.WriteLine("/////////////////////");
+            fout.Write(bodyBuilder);
+            fout.WriteLine();
+            fout.WriteLine("/////////////////////");
+            fout.WriteLine("// END CODE");
+            fout.WriteLine("/////////////////////");
+            fout.WriteLine("        #define _DIST_FUNCTION " + distFunction + "");
+            fout.WriteLine("        #include \"TessMain.cginc\"");
+            fout.WriteLine("        ENDCG");
             fout.WriteLine("    }");
             fout.WriteLine("    FallBack \"Diffuse\"");
             fout.WriteLine("}");

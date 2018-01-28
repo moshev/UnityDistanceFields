@@ -69,7 +69,7 @@ float _dist_4(float3 p) {
 }
 
 float _dist_xform_4(float3 p) {
-    return _dist_4(qrot(qinv(_rotation_4), p) - _translation_4);
+    return _dist_4(qrot(qinv(_rotation_4), p - _translation_4));
 }
 float3 _translation_5;
 float4 _rotation_5;

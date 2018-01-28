@@ -59,6 +59,11 @@ public class DFNodeEditor : Editor
             string newpath = EditorUtility.SaveFilePanel("Save as...", "Assets/Shaders", node.name + ".shader", "shader");
             node.CreateShaderAsset(newpath);
         }
+        if (GUILayout.Button("Generate Tesselation Shader"))
+        {
+            string newpath = EditorUtility.SaveFilePanel("Save as...", "Assets/Shaders", node.name + "Tess.shader", "shader");
+            node.CreateTessellationShader(newpath, node.GetComponent<MeshRenderer>().sharedMaterial);
+        }
         if (GUILayout.Button("Generate Compute Shader"))
         {
             string newpath = EditorUtility.SaveFilePanel("Save as...", "Assets/Shaders", node.name + ".compute", "compute");
