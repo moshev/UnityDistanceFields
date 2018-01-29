@@ -20,7 +20,7 @@ void DistanceMain(uint3 dispatchId : SV_DispatchThreadID)
     uint arrId = dispatchId.x;
     rayresult res;
     res.p = float3(0, 0, 0);
-    res.n = float3(0, 0, 0);
+    res.n = normalize(grad(_input[arrId].p));
     res.distance = _DIST_FUNCTION(_input[arrId].p);
     _output[arrId] = res;
 }

@@ -89,9 +89,8 @@ public class DFNode : MonoBehaviour
         string quaternionValue, translationValue;
         if (lockTransform)
         {
-            Transform xform = gameObject.transform;
-            translationValue = string.Format("float3({0},{1},{2})", xform.position.x, xform.position.y, xform.position.z);
-            quaternionValue = string.Format("float4({0},{1},{2},{3})", xform.rotation.x, xform.rotation.y, xform.rotation.z, xform.rotation.w);
+            translationValue = string.Format("float3({0},{1},{2})", transform.position.x, transform.position.y, transform.position.z);
+            quaternionValue = string.Format("float4({0},{1},{2},{3})", transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
         }
         else
         {
@@ -230,6 +229,7 @@ float {0}(float3 p) {{
                 fout.WriteLine();
             }
             fout.WriteLine("        _EdgeLength (\"Tessellation edge Length\", Range(2,50)) = 15");
+            fout.WriteLine("        _MaxDisplacement (\"Maximum object-space displacement\", Range(0,1)) = 0.1");
             fout.WriteLine("        _MainTex (\"Main texture\", 2D) = \"white\" {}");
             fout.WriteLine("        _Color (\"Color\", color) = (1,1,1,0)");
             fout.WriteLine("        _Specular (\"Specular\", Range(0,1)) = 0.5");
@@ -289,7 +289,7 @@ float {0}(float3 p) {{
             fout.WriteLine("    uint arrId = dispatchId.x;");
             fout.WriteLine("    rayresult res;");
             fout.WriteLine("    res.p = float3(0, 0, 0);");
-            fout.WriteLine("    res.n = float3(0, 0, 0);");
+            fout.WriteLine("    res.n = normalize(grad(_input[arrId].p));");
             fout.WriteLine("    res.distance = _DIST_FUNCTION(_input[arrId].p);");
             fout.WriteLine("    _output[arrId] = res;");
             fout.WriteLine("}");

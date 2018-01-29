@@ -218,6 +218,7 @@ public class DFNodeMesher
         //currentProgress.StartProgress("Calculating distances");
         //TaskCalculateDistances();
         //progressReport.EndProgress();
+        InitKernel();
         StartTask(progressReport, "Calculating distances", TaskCalculateDistances);
     }
 
@@ -323,6 +324,7 @@ public class DFNodeMesher
 
     public void AlgorithmFindEdgeIntersections(ProgressReport progressReport)
     {
+        InitKernel();
         StartTask(progressReport, "Finding edge intersections", TaskFindEdgeIntersections);
     }
 
@@ -432,6 +434,7 @@ public class DFNodeMesher
 
     public void AlgorithmConstructVertices(ProgressReport progressReport)
     {
+        InitKernel();
         StartTask(progressReport, "Constructing vertices", TaskConstructVertices);
     }
 
@@ -531,6 +534,7 @@ public class DFNodeMesher
 
     public void AlgorithmCreateMesh(ProgressReport progressReport, MeshFilter mf)
     {
+        InitKernel();
         if (netVertices.Count > 65000)
         {
             Debug.Log(String.Format("Refusing to create mesh with more than 65k vertices: {0}", netVertices.Count));
@@ -549,9 +553,8 @@ public class DFNodeMesher
                 result.vertices.Length, result.triangles.Length));
             Mesh mesh = new Mesh();
             mesh.vertices = result.vertices;
-            //mesh.normals = result.normals;
+            mesh.normals = result.normals;
             mesh.triangles = result.triangles;
-            mesh.RecalculateNormals();
             mf.mesh = mesh;
         };
         StartTask(progressReport, "Creating mesh", () => TaskCreateMesh(result));
@@ -559,9 +562,10 @@ public class DFNodeMesher
 
     private void TaskCreateMesh(CreateMeshResult outResult)
     {
-        int[] triangles = new int[edgesCrossingSurface.Count * 2 * 3];
-        Vector3[] vertices = new Vector3[netVertices.Count];
-        netVertices.Map(new NetToArrayMapper(vertices).Put);
+        outResult.vertices = new Vector3[netVertices.Count];
+        outResult.normals = new Vector3[netVertices.Count];
+        outResult.triangles = new int[edgesCrossingSurface.Count * 2 * 3];
+        netVertices.Map(new NetToArrayMapper(outResult.vertices).Put);
         int iTriangle = 0;
         int iEdge = 0;
         foreach (GridEdge edge in edgesCrossingSurface)
@@ -569,7 +573,6 @@ public class DFNodeMesher
             GridCoordinate c0 = edge.c0;
             GridCoordinate c1 = edge.c1;
             Debug.Assert(c0.CompareTo(c1) != 0);
-            //Vector3 vmid = edge.t * VectorFromCoordinate(edge.c0) + (1 - edge.t) * VectorFromCoordinate(edge.c1);
             GridCoordinate cBase;
             if (c0.CompareTo(c1) < 0)
             {
@@ -611,25 +614,48 @@ public class DFNodeMesher
             }
             for (int i = 0; i < 2; i++)
             {
-                triangles[iTriangle++] = indices[0];
-                triangles[iTriangle++] = indices[winding[i]];
-                triangles[iTriangle++] = indices[winding[i + 1]];
+                outResult.triangles[iTriangle++] = indices[0];
+                outResult.triangles[iTriangle++] = indices[winding[i]];
+                outResult.triangles[iTriangle++] = indices[winding[i + 1]];
             }
             iEdge++;
-            currentProgress.SetProgress(iEdge / (double)(edgesCrossingSurface.Count + vertices.Length));
+            currentProgress.SetProgress(iEdge / (double)(edgesCrossingSurface.Count + outResult.vertices.Length));
         }
-        Debug.Assert(iTriangle == triangles.Length);
-        Vector3[] normals = new Vector3[vertices.Length];
-        for (int i = 0; i < vertices.Length; i++)
+        Debug.Assert(iTriangle == outResult.triangles.Length);
+        int bufsz = computeThreads * shaderBatches;
+        float[] input = new float[bufsz * RayContext.floatSize];
+        float[] output = new float[bufsz * RayResult.floatSize];
+        int bufferIdx = 0;
+        for (int i = 0; i < outResult.vertices.Length; i++)
         {
-            // XXX comment for compile
-            //normals[i] = Gradient(vertices[i]);
-            normals[i] = Vector3.up;
-            currentProgress.SetProgress((iEdge + i + 1) / (double)(edgesCrossingSurface.Count + vertices.Length));
+            RayContext ctx;
+            ctx.p = outResult.vertices[i];
+            ctx.dir = Vector3.zero;
+            ctx.WriteTo(input, bufferIdx++);
+            if (bufferIdx == bufsz)
+            {
+                InvokeShader(computeInput, computeOutput, input, output, bufferIdx, kernelDistanceMain);
+                RayResult res = new RayResult();
+                for (int j = 0; j < bufferIdx; j++)
+                {
+                    res.ReadFrom(output, j);
+                    outResult.normals[i - bufferIdx + 1 + j] = res.n;
+                }
+                bufferIdx = 0;
+                currentProgress.SetProgress((iEdge + i + 1) / (double)(edgesCrossingSurface.Count + outResult.vertices.Length));
+            }
         }
-        outResult.vertices = vertices;
-        outResult.normals = normals;
-        outResult.triangles = triangles;
+        if (bufferIdx > 0)
+        {
+            InvokeShader(computeInput, computeOutput, input, output, bufferIdx, kernelDistanceMain);
+            RayResult res = new RayResult();
+            for (int j = 0; j < bufferIdx; j++)
+            {
+                res.ReadFrom(output, j);
+                outResult.normals[outResult.normals.Length - bufferIdx + j] = res.n;
+            }
+        }
+        currentProgress.SetProgress(1.0);
         currentStep = AlgorithmStep.Finished;
     }
 

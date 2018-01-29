@@ -14,7 +14,7 @@ float3 grad(float3 p) {
 		distToObject(p + ez) - distToObject(p - ez));
 }
 
-#define MAXITER 2
+#define NUMSAMPLES 7
 
 struct appdata {
 	float4 vertex: POSITION;
@@ -24,27 +24,25 @@ struct appdata {
 };
 
 float _EdgeLength;
+float _MaxDisplacement;
 
 float4 tess(appdata v0, appdata v1, appdata v2) {
-	return UnityEdgeLengthBasedTessCull(v0.vertex, v1.vertex, v2.vertex, _EdgeLength, 1);
+	return UnityEdgeLengthBasedTessCull(v0.vertex, v1.vertex, v2.vertex, _EdgeLength, _MaxDisplacement);
 }
 
 void disp(inout appdata v) {
 	float3 p = v.vertex.xyz;
-	float3 n = -normalize(grad(p));
-	//float3 n = normalize(v.normal);
+	float3 n = normalize(v.normal);
 	float d = distToObject(p);
 	float t = 0;
-	for (int i = 0; i < MAXITER; i++) {
-		if (abs(d) < EPSILON) {
-			break;
-		}
+	for (int i = 0; i <= NUMSAMPLES; i++) {
+		if (abs(d) > _MaxDisplacement || abs(d) < EPSILON) break;
 		t += d;
-		p -= d * n;
+		p = -t * n + v.vertex.xyz;
 		d = distToObject(p);
 	}
-	if (abs(d) < MAXITER * EPSILON)
-		v.vertex = float4(p, 1);
+	v.vertex = float4(p, 1);
+	v.normal = normalize(grad(p));
 }
 
 struct Input {

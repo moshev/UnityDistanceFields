@@ -1,6 +1,7 @@
 Shader "Surface/HornsTess" {
    Properties {
         _EdgeLength ("Tessellation edge Length", Range(2,50)) = 15
+        _MaxDisplacement ("Maximum object-space displacement", Range(0,1)) = 0.1
         _MainTex ("Main texture", 2D) = "white" {}
         _Color ("Color", color) = (1,1,1,0)
         _Specular ("Specular", Range(0,1)) = 0.5
@@ -20,7 +21,7 @@ Shader "Surface/HornsTess" {
 
 
 float _dist_1(float3 p) {
-	return length(p) - 1;
+	return length(p) - 2.12;
 }
 
 float _dist_xform_1(float3 p) {
@@ -30,12 +31,12 @@ float _dist_xform_1(float3 p) {
 
 
 float _dist_2(float3 p) {
-	float3 q = abs(p) - float3(1, 1, 1);
+	float3 q = abs(p) - float3(1.86, 1.86, 1.86);
 	return max(max(q.x, q.y), q.z);
 }
 
 float _dist_xform_2(float3 p) {
-    return _dist_2(qrot(qinv(float4(0,0.3826834,0,0.9238796)), p - float3(-1.56,0,-0.61)));
+    return _dist_2(qrot(qinv(float4(-0.2460241,0.07082517,-0.2674241,0.9289458)), p - float3(1.398,0.587,2.525)));
 }
 
 float _dist_3(float3 p) {
@@ -52,18 +53,18 @@ float _dist_xform_3(float3 p) {
 float _dist_4(float3 p) {
     float z = p.y;
     float xy2 = dot(p, p);
-    float b = 0.84 - sqrt(xy2);
-    return sqrt(b * b + z * z) - 0.43;
+    float b = 1.18 - sqrt(xy2);
+    return sqrt(b * b + z * z) - 0.38;
 }
 
 float _dist_xform_4(float3 p) {
-    return _dist_4(qrot(qinv(float4(0.1881926,-0.07597452,0.925623,-0.3194269)), p - float3(0,0,0)));
+    return _dist_4(qrot(qinv(float4(0,0,0,1)), p - float3(0,0,0)));
 }
 
 
 
 float _dist_5(float3 p) {
-	float a = clamp(0.7, 0.0, 1.0);
+	float a = clamp(0.77, 0.0, 1.0);
 	return (1.0 - a) * _dist_xform_3(p) + a * _dist_xform_4(p);
 }
 

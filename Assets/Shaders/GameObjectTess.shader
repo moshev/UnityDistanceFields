@@ -1,6 +1,7 @@
 Shader "Surface/GameObjectTess" {
    Properties {
         _EdgeLength ("Tessellation edge Length", Range(2,50)) = 15
+        _MaxDisplacement ("Maximum object-space displacement", Range(0,1)) = 0.1
         _MainTex ("Main texture", 2D) = "white" {}
         _Color ("Color", color) = (1,1,1,0)
         _Specular ("Specular", Range(0,1)) = 0.5

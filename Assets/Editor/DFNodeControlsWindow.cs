@@ -47,7 +47,6 @@ public class DFNodeControlsWindow : EditorWindow
         }
         if (selShader != shader || mesher.distanceEstimator != shader || selRenderer != renderer || mesher.material != selMaterial)
         {
-            bool error2 = false;
             try
             {
                 Debug.Log("Resetting compute shader");
@@ -61,11 +60,11 @@ public class DFNodeControlsWindow : EditorWindow
             }
             catch (MissingReferenceException e)
             {
-                error2 = true;
+                error = true;
             }
             catch (NullReferenceException e)
             {
-                error2 = true;
+                error = true;
             }
             operationProgress.CancelProgress();
         }
