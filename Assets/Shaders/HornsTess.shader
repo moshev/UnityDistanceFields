@@ -21,7 +21,7 @@ Shader "Surface/HornsTess" {
 
 
 float _dist_1(float3 p) {
-	return length(p) - 2.12;
+	return length(p) - 1.35;
 }
 
 float _dist_xform_1(float3 p) {
@@ -31,12 +31,12 @@ float _dist_xform_1(float3 p) {
 
 
 float _dist_2(float3 p) {
-	float3 q = abs(p) - float3(1.86, 1.86, 1.86);
+	float3 q = abs(p) - float3(1.36, 1.36, 1.36);
 	return max(max(q.x, q.y), q.z);
 }
 
 float _dist_xform_2(float3 p) {
-    return _dist_2(qrot(qinv(float4(-0.2460241,0.07082517,-0.2674241,0.9289458)), p - float3(1.398,0.587,2.525)));
+    return _dist_2(qrot(qinv(float4(-0.1731736,0.2309967,0.1132079,0.9507026)), p - float3(0,0,0.935)));
 }
 
 float _dist_3(float3 p) {
@@ -64,12 +64,12 @@ float _dist_xform_4(float3 p) {
 
 
 float _dist_5(float3 p) {
-	float a = clamp(0.77, 0.0, 1.0);
+	float a = clamp(0.52, 0.0, 1.0);
 	return (1.0 - a) * _dist_xform_3(p) + a * _dist_xform_4(p);
 }
 
 float _dist_xform_5(float3 p) {
-    return _dist_5(qrot(qinv(float4(0,0,0,1)), p - float3(0,0,0)));
+    return _dist_5(p);
 }
 
 /////////////////////

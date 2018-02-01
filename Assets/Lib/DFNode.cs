@@ -46,12 +46,12 @@ public class DFNode : MonoBehaviour
     {
     }
 
-    private string GetFragments(GlobalNameManager nm, List<DFNodeProperty> outProperties, StringBuilder body, bool lockTransform = false, Material matProps = null)
+    private string GetFragments(GlobalNameManager nm, List<DFNodeProperty> outProperties, StringBuilder body, bool lockTransform = false, bool zeroTransform = false, Material matProps = null)
     {
         StringBuilder mangledFragment = new StringBuilder(bodyFragment);
         foreach (DFNodeChild child in children)
         {
-            string functionName = child.node.GetFragments(nm, outProperties, body, lockTransform, matProps);
+            string functionName = child.node.GetFragments(nm, outProperties, body, lockTransform, false, matProps);
             Debug.Log("Replace child " + child.name + " with " + functionName);
             mangledFragment.Replace(child.name, functionName);
         }
@@ -97,11 +97,22 @@ public class DFNode : MonoBehaviour
             quaternionValue = quaternionUniform;
             translationValue = translationUniform;
         }
-        body.Append(string.Format(@"
+        if (lockTransform && zeroTransform)
+        {
+            body.Append(string.Format(@"
+float {0}(float3 p) {{
+    return {1}(p);
+}}
+", distFunction, distSub));
+        }
+        else
+        {
+            body.Append(string.Format(@"
 float {0}(float3 p) {{
     return {1}(qrot(qinv({2}), p - {3}));
 }}
 ", distFunction, distSub, quaternionValue, translationValue));
+        }
         return distFunction;
     }
 
@@ -215,7 +226,7 @@ float {0}(float3 p) {{
         GlobalNameManager nm = new GlobalNameManager();
         List<DFNodeProperty> properties = new List<DFNodeProperty>();
         StringBuilder bodyBuilder = new StringBuilder();
-        string distFunction = GetFragments(nm, properties, bodyBuilder, true, material);
+        string distFunction = GetFragments(nm, properties, bodyBuilder, true, true, material);
         string shaderName = Path.GetFileNameWithoutExtension(assetPath);
         using (StreamWriter fout = new StreamWriter(assetPath))
         {

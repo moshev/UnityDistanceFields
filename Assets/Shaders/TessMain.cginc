@@ -14,7 +14,7 @@ float3 grad(float3 p) {
 		distToObject(p + ez) - distToObject(p - ez));
 }
 
-#define NUMSAMPLES 7
+#define NUMSAMPLES 4
 
 struct appdata {
 	float4 vertex: POSITION;
@@ -32,15 +32,17 @@ float4 tess(appdata v0, appdata v1, appdata v2) {
 
 void disp(inout appdata v) {
 	float3 p = v.vertex.xyz;
-	float3 n = normalize(v.normal);
+	float3 n = v.normal;
 	float d = distToObject(p);
 	float t = 0;
 	for (int i = 0; i <= NUMSAMPLES; i++) {
-		if (abs(d) > _MaxDisplacement || abs(d) < EPSILON) break;
+		//if (abs(d) < EPSILON) break;
 		t += d;
 		p = -t * n + v.vertex.xyz;
 		d = distToObject(p);
 	}
+	if (abs(t) > _MaxDisplacement) t = sign(t) * _MaxDisplacement;
+	p = -t * n + v.vertex.xyz;
 	v.vertex = float4(p, 1);
 	v.normal = normalize(grad(p));
 }
