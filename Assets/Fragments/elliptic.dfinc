@@ -1,0 +1,34 @@
+// name = Elliptic
+
+// properties
+
+_A("X multiplier", Float) = 1
+_B("Z multiplier", Float) = 1
+
+// cgprogram
+float _A;
+float _B;
+
+float _dist(float3 p) {
+    float2 ab = float2(_A, _B);
+    float3 n = float3(2 * _A * p.x, -1, 2 * _B * p.z);
+    float3 pest;
+	for (int i = 0; i < 10; i++) {
+        float A = dot(ab, n.xz*n.xz);
+        float B = 2 * dot(ab, p.xz*n.xz) - n.y;
+        float C = dot(ab, p.xz*p.xz) - p.y;
+        float D = B * B - 4 * A * C;
+        float T = -0.5 * B / A;
+        if (D < 0) return 1;
+        D = 0.5 * sqrt(D) / A;
+        if (T * D < 0) T += D;
+        else T -= D;
+        pest = p + T * n;
+        n = float3(2 * _A * pest.x, -1, 2 * _B * pest.z);
+	}
+    float3 dp = pest - p;
+    float dist = length(dp);
+    if (dot(dp, n) > 0) dist = -dist;
+    return dist;
+}
+
