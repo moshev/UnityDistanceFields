@@ -1,0 +1,20 @@
+// name = Smooth Intersect
+
+// properties
+
+_A(ChildNode)
+_B(ChildNode)
+_R("Smooth intersection radius", Float) = 0.2
+
+// cgprogram
+
+float _R;
+
+float _dist(float3 p) {
+    float a = _A(p);
+    float b = _B(p);
+    if (!isfinite(a)) return b;
+    if (!isfinite(b)) return a;
+    float e = max(_R - abs(a-b), 0);
+    return max(a, b) + 0.25*e*e/_R;
+}

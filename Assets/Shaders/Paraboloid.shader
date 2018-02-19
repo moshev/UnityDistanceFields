@@ -5,6 +5,7 @@ Shader "Unlit/Paraboloid" {
         _Sz_1("Depth", Float) = 1
         _A_1("X multiplier", Float) = 1
         _B_1("Z multiplier", Float) = 1
+        _R_1("Smooth intersection radius", Float) = 0.2
         _CanvasSize("CanvasSize", Float) = 1
     }
     SubShader {
@@ -77,12 +78,15 @@ float _dist_xform_2(float3 p) {
 float3 _translation_3;
 float4 _rotation_3;
 
+float _R_1;
+
 float _dist_3(float3 p) {
     float a = _dist_xform_1(p);
     float b = _dist_xform_2(p);
     if (!isfinite(a)) return b;
     if (!isfinite(b)) return a;
-	return max(a, b);
+    float e = max(_R_1 - abs(a-b), 0);
+    return max(a, b) + 0.25*e*e/_R_1;
 }
 
 float _dist_xform_3(float3 p) {

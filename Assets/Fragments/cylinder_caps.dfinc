@@ -1,0 +1,16 @@
+// name = Capsule
+
+// properties
+
+_Radius("Radius", Float) = 0.2
+_Height("Height", Float) = 1
+
+// cgprogram
+
+float _Radius;
+float _Height;
+
+float _dist(float3 p) {
+    return lerp(length(p.xz) - _Radius, length(float3(p.x, abs(p.y) - _Height, p.z)) - _Radius,
+            step(_Height, abs(p.y)));
+}

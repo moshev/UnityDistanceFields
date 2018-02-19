@@ -1,0 +1,14 @@
+// name = Shell
+
+// properties
+
+_A(ChildNode)
+_R("Shell radius", Float) = 0.2
+
+// cgprogram
+float _R;
+
+float _dist(float3 p) {
+    float a = _A(p);
+    return abs(a) - _R;
+}

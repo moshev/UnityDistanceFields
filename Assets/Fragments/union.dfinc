@@ -1,0 +1,16 @@
+// name = Smooth Union
+
+// properties
+
+_A(ChildNode)
+_B(ChildNode)
+
+// cgprogram
+
+float _dist(float3 p) {
+    float a = _A(p);
+    float b = _B(p);
+    if (!isfinite(a)) return b;
+    if (!isfinite(b)) return a;
+    return min(a, b);
+}
