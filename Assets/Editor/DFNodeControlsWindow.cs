@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using UnityEditor;
 using UnityEngine;
 
@@ -96,6 +97,7 @@ public class DFNodeControlsWindow : EditorWindow
         {
             mesher.AlgorithmConstructVertices(operationProgress);
         }
+        GUILayout.BeginHorizontal();
         if (GUILayout.Button("Step 4 - make mesh"))
         {
             GameObject go = Selection.activeGameObject;
@@ -113,6 +115,15 @@ public class DFNodeControlsWindow : EditorWindow
                 Debug.Log("Please select a game object with a mesh filter");
             }
         }
+        if (GUILayout.Button("Step 4 - write mesh"))
+        {
+            string objfile = EditorUtility.SaveFilePanelInProject("Select OBJ file", renderer.gameObject.name + ".obj", "obj", "Enter a file name to save the mesh as", "Models");
+            if (!string.IsNullOrEmpty(objfile))
+            {
+                mesher.AlgorithmWriteMesh(operationProgress, objfile);
+            }
+        }
+        GUILayout.EndHorizontal();
         GUI.enabled = wasEnabled;
         string label;
         string message;
@@ -151,11 +162,14 @@ public class DFNodeControlsWindow : EditorWindow
             try
             {
                 operationProgress.RunMainThreadCallback();
-                operationProgress.CurrentState = new ProgressReport.State("", 0);
             }
             catch (Exception e)
             {
                 Debug.LogException(e);
+            }
+            finally
+            {
+                operationProgress.CurrentState = new ProgressReport.State("", 0);
             }
         }
         EditorGUILayout.LabelField(label);

@@ -124,8 +124,14 @@ public class ProgressReport
     {
         if (callback != null)
         {
-            callback();
-            callback = null;
+            try
+            {
+                callback();
+            }
+            finally
+            {
+                callback = null;
+            }
         }
     }
 

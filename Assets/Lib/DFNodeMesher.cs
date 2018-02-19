@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using UnityEngine;
@@ -550,12 +551,42 @@ public class DFNodeMesher
         progressReport.Callback = delegate ()
         {
             Debug.Log(String.Format("Assigning mesh with {0} vertices and {1} triangles",
-                result.vertices.Length, result.triangles.Length));
+                result.vertices.Length, result.triangles.Length / 3));
             Mesh mesh = new Mesh();
             mesh.vertices = result.vertices;
             mesh.normals = result.normals;
             mesh.triangles = result.triangles;
             mf.mesh = mesh;
+        };
+        StartTask(progressReport, "Creating mesh", () => TaskCreateMesh(result));
+    }
+
+    public void AlgorithmWriteMesh(ProgressReport progressReport, string path)
+    {
+        InitKernel();
+        CreateMeshResult result = new CreateMeshResult();
+        progressReport.Callback = delegate ()
+        {
+            StreamWriter w = new StreamWriter(path, false, Encoding.ASCII);
+            Debug.Log(String.Format("Writing mesh with {0} vertices and {1} triangles",
+                result.vertices.Length, result.triangles.Length / 3));
+            w.Write("o Object\n");
+            foreach (Vector3 v in result.vertices)
+            {
+                w.Write(String.Format("v {0} {1} {2}\n", v.x, v.y, v.z));
+            }
+            foreach (Vector3 n in result.normals)
+            {
+                w.Write(String.Format("vn {0} {1} {2}\n", n.x, n.y, n.z));
+            }
+            for (int i = 0; i < result.triangles.Length; i += 3)
+            {
+                w.Write(String.Format("f {0}//{0} {1}//{1} {2}//{2}\n",
+                    result.triangles[i + 0] + 1,
+                    result.triangles[i + 1] + 1,
+                    result.triangles[i + 2] + 1));
+            }
+            w.Close();
         };
         StartTask(progressReport, "Creating mesh", () => TaskCreateMesh(result));
     }
