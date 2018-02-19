@@ -11,6 +11,7 @@ Shader "Unlit/Paraboloid" {
         Tags { "RenderType" = "Opaque" "Queue" = "Transparent" }
         LOD 200
         Pass {
+            Tags { "LightMode" = "ForwardBase" }
             Cull Back
             CGPROGRAM
             #pragma vertex vert
@@ -92,6 +93,7 @@ float _dist_xform_3(float3 p) {
 // END CODE
 /////////////////////
             #define _DIST_FUNCTION _dist_xform_3
+            #define DO_LIGHTS 1
             #include "RaymarchMain.cginc"
             ENDCG
         }

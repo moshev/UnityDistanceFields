@@ -1,3 +1,5 @@
+#include "UnityLightingCommon.cginc" 
+
 struct appdata {
 	float4 vertex: POSITION;
 };
@@ -51,7 +53,7 @@ float distToObject(float3 p) {
 	return _DIST_FUNCTION(p);
 }
 
-#define EPSILON 0.0001
+#define EPSILON 0.001
 
 float3 grad(float3 p) {
 	float3 ex = float3(EPSILON, 0, 0);
@@ -92,7 +94,7 @@ rayresult trace(float3 objpoint) {
 	rayresult res;
 	marchresult mres = march(objpoint, dir);
 	res.p = mres.p;
-	res.n = -normalize(grad(mres.p));
+	res.n = normalize(grad(mres.p));
 	res.distance = mres.distance;
 	return res;
 }
@@ -110,7 +112,17 @@ output frag(v2f input) {
 		discard;
 	} else {
 		float4 screenp = UnityObjectToClipPos(res.p);
+#ifdef DO_LIGHTS
+        fixed3 dir = _WorldSpaceLightPos0.xyz;
+        if (_WorldSpaceLightPos0.w > 0.5) dir = res.p - dir;
+        fixed diff = max (0, dot (res.n, dir));
+        fixed4 c;
+        c.rgb = fixed3(1.0,0.796,0.247) * _LightColor0 * diff;
+        c.a = 1;
+        o.color = c;
+#else
 		o.color = float4(abs(res.n), 1);
+#endif
 		o.depth = screenp.z / screenp.w;
 	}
 	return o;

@@ -192,6 +192,7 @@ float {0}(float3 p) {{
             fout.WriteLine("        Tags { \"RenderType\" = \"Opaque\" \"Queue\" = \"Transparent\" }");
             fout.WriteLine("        LOD 200");
             fout.WriteLine("        Pass {");
+            fout.WriteLine("            Tags { \"LightMode\" = \"ForwardBase\" }");
             fout.WriteLine("            Cull Back");
             fout.WriteLine("            CGPROGRAM");
             fout.WriteLine("            #pragma vertex vert");
@@ -207,6 +208,7 @@ float {0}(float3 p) {{
             fout.WriteLine("// END CODE");
             fout.WriteLine("/////////////////////");
             fout.WriteLine("            #define _DIST_FUNCTION " + distFunction + "");
+            fout.WriteLine("            #define DO_LIGHTS 1");
             fout.WriteLine("            #include \"RaymarchMain.cginc\"");
             fout.WriteLine("            ENDCG");
             fout.WriteLine("        }");
