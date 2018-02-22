@@ -251,7 +251,7 @@ float {0}(float3 p) {{
             fout.WriteLine("        Tags { \"RenderType\" = \"Opaque\" }");
             fout.WriteLine("        LOD 200");
             fout.WriteLine("        CGPROGRAM");
-            fout.WriteLine("        #pragma surface surf BlinnPhong addshadow fullforwardshadows vertex:disp tessellate:tess nolightmap");
+            fout.WriteLine("        #pragma surface surf Standard addshadow fullforwardshadows vertex:disp tessellate:tess nolightmap");
             fout.WriteLine("        #pragma target 4.6");
             fout.WriteLine("        #include \"Tessellation.cginc\"");
             fout.WriteLine("        #include \"RaymarchUtils.cginc\"");

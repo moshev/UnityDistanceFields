@@ -55,9 +55,9 @@ sampler2D _MainTex;
 fixed4 _Color;
 float _Specular;
 
-void surf (Input IN, inout SurfaceOutput o) {
+void surf (Input IN, inout SurfaceOutputStandard o) {
 	half4 c = tex2D (_MainTex, IN.uv_MainTex) * _Color;
 	o.Albedo = c.rgb;
-	o.Specular = _Specular;
-	o.Gloss = 1.0;
+    o.Alpha = 1;
+    o.Smoothness = 0.5;
 }

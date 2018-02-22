@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
+using System;
 
 [ExecuteInEditMode]
 public class DFRenderer : MonoBehaviour
@@ -75,7 +76,9 @@ public class DFRenderer : MonoBehaviour
     }
 
     public void UpdateMaterial()
-    { }
+    {
+        AssetDatabase.Refresh(ImportAssetOptions.Default);
+    }
 
     private void OnGUI()
     {

@@ -690,18 +690,6 @@ public class DFNodeMesher
         currentStep = AlgorithmStep.Finished;
     }
 
-    private static bool FindEdgeIntersection(out Vector3 intersection, float d0, float d1, Vector3 e0, Vector3 e1)
-    {
-        intersection = Vector3.zero;
-        if (d0 * d1 < 0)
-        {
-            return false;
-        }
-        float t = (Math.Abs(d1 - d0) < 1e-6f) ? 0.5f : d1 / (d1 - d0);
-        intersection = t * e0 + (1f - t) * e1;
-        return true;
-    }
-
     private Vector3 VectorFromIndices(int i, int j, int k)
     {
         Vector3 v;

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
+/// Generates unique names by appending consecutive numbers
 internal class GlobalNameManager
 {
     private Dictionary<string, int> mangleMap = new Dictionary<string, int>();

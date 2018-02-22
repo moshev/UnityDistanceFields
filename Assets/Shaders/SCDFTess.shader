@@ -10,7 +10,7 @@ Shader "Surface/SCDFTess" {
         Tags { "RenderType" = "Opaque" }
         LOD 200
         CGPROGRAM
-        #pragma surface surf BlinnPhong addshadow fullforwardshadows vertex:disp tessellate:tess nolightmap
+        #pragma surface surf Standard addshadow fullforwardshadows vertex:disp tessellate:tess nolightmap
         #pragma target 4.6
         #include "Tessellation.cginc"
         #include "RaymarchUtils.cginc"
@@ -26,7 +26,7 @@ float _dist_1(float3 p) {
 }
 
 float _dist_xform_1(float3 p) {
-    return _dist_1(qrot(qinv(float4(0,0,0,1)), p - float3(0,0.766,1.141)));
+    return _dist_1(qrot(qinv(float4(0,0,0,1)), p - float3(0,0,0)));
 }
 
 
@@ -36,7 +36,7 @@ float _dist_2(float3 p) {
 }
 
 float _dist_xform_2(float3 p) {
-    return _dist_2(qrot(qinv(float4(0,0,0,1)), p - float3(0,0,0)));
+    return _dist_2(qrot(qinv(float4(0,0,0,1)), p - float3(-0.488,0.428,0.03)));
 }
 
 
