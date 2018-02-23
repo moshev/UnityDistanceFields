@@ -31,17 +31,6 @@ v2f vert(appdata input) {
 	return o;
 }
 
-struct raycontext {
-	float3 p;
-	float3 dir;
-};
-
-struct rayresult {
-	float3 p;
-	float3 n;
-	float distance;
-};
-
 float3x3 rotOf(float4x4 m) {
 	float3 r0 = m[0].xyz;
 	float3 r1 = m[1].xyz;
@@ -67,9 +56,11 @@ float3 grad(float3 p) {
 
 #define MAXITER 256
 struct marchresult {
-	float3 p;
-	float distance;
+	float3 p; // Intersection point in object space
+    float3 n; // Normal in object space
+	float distance; // Distance to object at p
 };
+// Raymarch algorithm. If intersection is found, distance will be less than EPSILON
 marchresult march(float3 p, float3 dir) {
 	float t = 0;
 	float d = distToObject(p);
@@ -87,18 +78,6 @@ marchresult march(float3 p, float3 dir) {
 	return mres;
 }
 
-rayresult trace(float3 objpoint) {
-	float3 dir = -normalize(ObjSpaceViewDir(float4(objpoint, 1)));
-	float4x4 w2o = unity_WorldToObject;
-	float4x4 o2w = unity_ObjectToWorld;
-	rayresult res;
-	marchresult mres = march(objpoint, dir);
-	res.p = mres.p;
-	res.n = normalize(grad(mres.p));
-	res.distance = mres.distance;
-	return res;
-}
-
 struct output {
 	fixed4 color: SV_Target;
 	float depth: SV_Depth;
@@ -106,8 +85,9 @@ struct output {
 
 output frag(v2f input) {
 	output o;
-	rayresult res;
-	res = trace(input.objpos);
+	marchresult res;
+	float3 dir = -normalize(ObjSpaceViewDir(float4(input.objpos, 1)));
+	res = march(input.objpos, dir);
 	if (!isfinite(res.distance) || abs(res.distance) > EPSILON) {
 		discard;
 	} else {
