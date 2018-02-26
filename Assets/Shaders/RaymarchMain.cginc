@@ -74,6 +74,7 @@ marchresult march(float3 p, float3 dir) {
 	}
 	marchresult mres;
 	mres.p = q;
+    mres.n = normalize(grad(q));
 	mres.distance = d;
 	return mres;
 }

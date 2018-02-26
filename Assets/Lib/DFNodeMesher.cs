@@ -103,6 +103,9 @@ public class DFNodeMesher
     private int kernelDistanceMain;
     private int kernelRaymarchMain;
 
+    private ComputeBuffer shaderInputBuffer;
+    private ComputeBuffer shaderOutputBuffer;
+
     private AutoResetEvent computeEvent = new AutoResetEvent(false);
 
     public enum AlgorithmStep
@@ -155,9 +158,19 @@ public class DFNodeMesher
     {
     }
 
-    public void InitBuffers()
+    private void InitBuffers()
     {
         int bufsz = computeThreads * shaderBatches;
+        shaderInputBuffer = new ComputeBuffer(bufsz, RayContext.floatSize * sizeof(float));
+        shaderOutputBuffer = new ComputeBuffer(bufsz, RayResult.floatSize * sizeof(float));
+    }
+
+    private void DisposeBuffers()
+    {
+        shaderInputBuffer.Dispose();
+        shaderOutputBuffer.Dispose();
+        shaderInputBuffer = null;
+        shaderOutputBuffer = null;
     }
 
     public void InitKernel()
@@ -216,6 +229,8 @@ public class DFNodeMesher
         //TaskCalculateDistances();
         //progressReport.EndProgress();
         InitKernel();
+        InitBuffers();
+        progressReport.Callback = DisposeBuffers;
         StartTask(progressReport, "Calculating distances", TaskCalculateDistances);
     }
 
@@ -223,23 +238,24 @@ public class DFNodeMesher
     {
         currentProgress.EnqueueTask(delegate ()
         {
+            float[] _vinput = vinput;
+            float[] _voutput = voutput;
+            int _nInputs = nInputs;
+            int _kernelIndex = kernelIndex;
+            int _maxIters = maxIters;
             Debug.Assert(distanceEstimator != null);
             for (int i = nInputs * RayContext.floatSize; i < vinput.Length; i++)
             {
                 vinput[i] = 0;
             }
-            ComputeBuffer inputBuffer = new ComputeBuffer(vinput.Length / RayContext.floatSize, RayContext.floatSize * sizeof(float));
-            ComputeBuffer outputBuffer = new ComputeBuffer(voutput.Length / RayResult.floatSize, RayResult.floatSize * sizeof(float));
-            inputBuffer.SetData(vinput);
+            shaderInputBuffer.SetData(vinput);
             int tgroups = (nInputs + computeThreads - 1) / computeThreads;
             //Debug.Log("Dispatching " + tgroups + " thread groups");
             distanceEstimator.SetInt("maxIters", maxIters);
-            distanceEstimator.SetBuffer(kernelIndex, "_input", inputBuffer);
-            distanceEstimator.SetBuffer(kernelIndex, "_output", outputBuffer);
+            distanceEstimator.SetBuffer(kernelIndex, "_input", shaderInputBuffer);
+            distanceEstimator.SetBuffer(kernelIndex, "_output", shaderOutputBuffer);
             distanceEstimator.Dispatch(kernelIndex, tgroups, 1, 1);
-            outputBuffer.GetData(voutput);
-            inputBuffer.Dispose();
-            outputBuffer.Dispose();
+            shaderOutputBuffer.GetData(voutput);
             computeEvent.Set();
         });
         computeEvent.WaitOne();
@@ -276,6 +292,7 @@ public class DFNodeMesher
 
     private void TaskCalculateDistances()
     {
+        StreamWriter logw = new StreamWriter("C:\\Users\\moshev\\Documents\\distlog.txt");
         Debug.Assert(currentProgress != null);
         distances = new float[gridSize, gridSize, gridSize];
         // buffer size in number of RayContext instances
@@ -303,8 +320,9 @@ public class DFNodeMesher
                     ctx.WriteTo(input, bufferIdx++);
                     if (bufferIdx == bufsz)
                     {
+                        logw.Write(String.Format("Filling from {0} {1} {2} to {3} {4} {5} - {6} elements\n", iStart, jStart, kStart, i, j, k, bufsz));
+                        logw.Flush();
                         InvokeShader(input, output, bufsz, kernelDistanceMain);
-                        //Debug.Log(String.Format("Filling from {0} {1} {2} to {3} {4} {5} - {6} elements", iStart, jStart, kStart, i, j, k, bufsz));
                         FillDistances(output, iStart, jStart, kStart, i, j, k);
                         iStart = -1;
                         jStart = -1;
@@ -326,6 +344,8 @@ public class DFNodeMesher
     public void AlgorithmFindEdgeIntersections(ProgressReport progressReport)
     {
         InitKernel();
+        InitBuffers();
+        progressReport.Callback = DisposeBuffers;
         StartTask(progressReport, "Finding edge intersections", TaskFindEdgeIntersections);
     }
 
@@ -346,6 +366,7 @@ public class DFNodeMesher
                     distances[e.c0.i, e.c0.j, e.c0.k], distances[e.c1.i, e.c1.j, e.c1.k], res.DebugDump()));
             }
             e.t = t;
+            e.normal = res.n;
             edgesCrossingSurface.Add(e, e.c0);
         }
     }
@@ -439,6 +460,78 @@ public class DFNodeMesher
         StartTask(progressReport, "Constructing vertices", TaskConstructVertices);
     }
 
+    private static double[,] MatrixTranspose(double[,] M)
+    {
+        double[,] T = new double[M.GetLength(1), M.GetLength(0)];
+        for (int j = 0; j < M.GetLength(0); j++)
+        {
+            for (int i = 0; i < M.GetLength(1); i++)
+            {
+                T[i, j] = M[j, i];
+            }
+        }
+        return T;
+    }
+
+    private static double[,] MatrixMul(double[,] A, double[,] B)
+    {
+        if (A.GetLength(1) != B.GetLength(0))
+        {
+            throw new Exception(String.Format("Mismatched matrix sizes - A[{0}, {1}] x B[{2}, {3}]", A.GetLength(0), A.GetLength(1), B.GetLength(0), B.GetLength(1)));
+        }
+        double[,] R = new double[A.GetLength(0), B.GetLength(1)];
+        for (int j = 0; j < A.GetLength(0); j++)
+        {
+            for (int i = 0; i < B.GetLength(1); i++)
+            {
+                double sum = 0;
+                for (int k = 0; k < B.GetLength(0); k++)
+                {
+                    double m = A[j, k] * B[k, i];
+                    sum += m;
+                }
+                R[j, i] = sum;
+            }
+        }
+        return R;
+    }
+
+    private static double[,] MatrixColumnReplace(double[,] A, double[,] c, int k)
+    {
+        if (c.GetLength(1) != 1)
+        {
+            throw new Exception("c is not a column vector");
+        }
+        if (c.GetLength(0) != A.GetLength(0))
+        {
+            throw new Exception("Size mismatch");
+        }
+        double[,] B = new double[A.GetLength(0), A.GetLength(1)];
+        for (int j = 0; j < A.GetLength(0); j++)
+        {
+            for (int i = 0; i < A.GetLength(1); i++)
+            {
+                if (i == k)
+                {
+                    B[j, i] = c[j, 0];
+                }
+                else
+                {
+                    B[j, i] = A[j, i];
+                }
+            }
+        }
+        return B;
+    }
+
+    private static double MatrixDeterminant(double[,] A)
+    {
+        return
+            A[0, 0] * A[1, 1] * A[2, 2] - A[0, 2] * A[1, 1] * A[2, 0] +
+            A[0, 1] * A[1, 2] * A[2, 0] - A[0, 0] * A[1, 2] * A[2, 1] +
+            A[0, 2] * A[1, 0] * A[2, 1] - A[0, 1] * A[1, 0] * A[2, 2];
+    }
+
     public void TaskConstructVertices()
     {
         netVertices = new GridCoordinateOctree<IndexedVector3>(
@@ -452,6 +545,11 @@ public class DFNodeMesher
                 for (int i = 0; i < gridSize - 1; i++)
                 {
                     int nEdges = 0;
+                    // Matrix whose rows are the normals of the edges' intersections
+                    double[,] A = new double[12, 3];
+                    // Vector whose entries are n_i * p_i - dot product of normal and intersection point
+                    double[,] b = new double[12, 1];
+                    // Sum of the intersection points - used for estimation if system can't be solved
                     Vector3 sum = Vector3.zero;
                     // coordinate of bottom front left vertex
                     GridCoordinate cBase = new GridCoordinate(i, j, k);
@@ -490,14 +588,59 @@ public class DFNodeMesher
                         Vector3 v0 = VectorFromCoordinate(gridEdge.c0);
                         Vector3 v1 = VectorFromCoordinate(gridEdge.c1);
                         float t = gridEdge.t;
-                        sum += t * v0 + (1 - t) * v1;
+                        Vector3 v = t * v0 + (1 - t) * v1;
+                        sum += v;
+                        double[] pi = new double[3];
+                        pi[0] = v.x;
+                        pi[1] = v.y;
+                        pi[2] = v.z;
+                        Vector3 n = gridEdge.normal;
+
+                        b[nEdges, 0] = pi[0] * n.x + pi[1] * n.y + pi[2] * n.z;
+
+                        A[nEdges, 0] = n.x;
+                        A[nEdges, 1] = n.y;
+                        A[nEdges, 2] = n.z;
+
                         nEdges++;
                     }
                     if (nEdges > 0)
                     {
-                        netVertices.Add(IndexedVector3.Create(sum / nEdges), cBase);
-                        //sum = VectorFromCoordinate(cBase);
-                        //meshVertices.Add(sum + 0.5f * cornerScale * Vector3.one);
+                        sum /= nEdges;
+                    }
+                    Vector3 result = sum;
+                    if (nEdges >= 3)
+                    {
+                        // A without the missing rows
+                        double[,] A_ = new double[nEdges, 3];
+                        // b without the missing rows
+                        double[,] b_ = new double[nEdges, 1];
+                        for (int m = 0; m < nEdges; m++)
+                        {
+                            b_[m, 0] = b[m, 0];
+                            A_[m, 0] = A[m, 0];
+                            A_[m, 1] = A[m, 1];
+                            A_[m, 2] = A[m, 2];
+                        }
+                        // A^T
+                        double[,] AT = MatrixTranspose(A_);
+                        // A^T * A
+                        double[,] ATA = MatrixMul(AT, A_);
+                        // A^T * b
+                        double[,] ATb = MatrixMul(AT, b_);
+                        const double EPS = 0.01;
+                        double D = MatrixDeterminant(ATA);
+                        if (Math.Abs(D) > EPS)
+                        {
+                            double Dx = MatrixDeterminant(MatrixColumnReplace(ATA, ATb, 0));
+                            double Dy = MatrixDeterminant(MatrixColumnReplace(ATA, ATb, 1));
+                            double Dz = MatrixDeterminant(MatrixColumnReplace(ATA, ATb, 2));
+                            result.Set((float)(Dx / D), (float)(Dy / D), (float)(Dz / D));
+                        }
+                    }
+                    if (nEdges > 0)
+                    {
+                        netVertices.Add(IndexedVector3.Create(result), cBase);
                     }
                 }
             }
@@ -535,7 +678,6 @@ public class DFNodeMesher
 
     public void AlgorithmCreateMesh(ProgressReport progressReport, MeshFilter mf)
     {
-        InitKernel();
         if (netVertices.Count > 65000)
         {
             Debug.Log(String.Format("Refusing to create mesh with more than 65k vertices: {0}", netVertices.Count));
@@ -546,10 +688,13 @@ public class DFNodeMesher
             Debug.Log("No mesh filter assigned!");
             return;
         }
+        InitKernel();
+        InitBuffers();
         mf.mesh = null;
         CreateMeshResult result = new CreateMeshResult();
         progressReport.Callback = delegate ()
         {
+            DisposeBuffers();
             Debug.Log(String.Format("Assigning mesh with {0} vertices and {1} triangles",
                 result.vertices.Length, result.triangles.Length / 3));
             Mesh mesh = new Mesh();
@@ -564,9 +709,11 @@ public class DFNodeMesher
     public void AlgorithmWriteMesh(ProgressReport progressReport, string path)
     {
         InitKernel();
+        InitBuffers();
         CreateMeshResult result = new CreateMeshResult();
         progressReport.Callback = delegate ()
         {
+            DisposeBuffers();
             StreamWriter w = new StreamWriter(path, false, Encoding.ASCII);
             Debug.Log(String.Format("Writing mesh with {0} vertices and {1} triangles",
                 result.vertices.Length, result.triangles.Length / 3));

@@ -9,7 +9,7 @@ struct rayresult {
 	float distance;
 };
 
-#define EPSILON 0.001
+#define EPSILON 0.0001
 
 float3 grad(float3 p) {
 	float3 ex = float3(EPSILON, 0, 0);
@@ -27,6 +27,11 @@ struct marchresult {
 	float distance;
 };
 marchresult march(float3 p, float3 dir) {
+	marchresult mres;
+    if (dot(dir, dir) < 0.5) {
+        mres.p = 0;
+        mres.distance = 1000;
+    }
 	float t = 0;
 	float d = _DIST_FUNCTION(p);
 	float3 q = p;
@@ -37,15 +42,19 @@ marchresult march(float3 p, float3 dir) {
 		q = p + t * dir;
 		d = _DIST_FUNCTION(q);
 	}
-	marchresult mres;
 	mres.p = q;
 	mres.distance = d;
 	return mres;
 }
 
 rayresult trace(raycontext ctx) {
+    rayresult res;
+    if (dot(ctx.dir, ctx.dir) < 0.5) {
+        res.p = 0;
+        res.n = 0;
+        res.distance = 1000;
+    }
 	marchresult mres = march(ctx.p, ctx.dir);
-	rayresult res;
 	res.p = mres.p;
 	res.n = normalize(grad(mres.p));
 	res.distance = mres.distance;

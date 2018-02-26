@@ -21,7 +21,6 @@ public class DFNodeControlsWindow : EditorWindow
 
     private void OnEnable()
     {
-        mesher.InitBuffers();
     }
 
     private void OnGUI()

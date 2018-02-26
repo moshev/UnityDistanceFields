@@ -6,7 +6,7 @@ float _dist_xform_1(float3 p);
 #include "RaymarchMainCompute.cginc"
 StructuredBuffer<raycontext> _input;
 RWStructuredBuffer<rayresult> _output;
-[numthreads(128, 1, 1)]
+[numthreads(32, 1, 1)]
 void RaymarchMain(uint3 dispatchId : SV_DispatchThreadID)
 {
     uint arrId = dispatchId.x;
@@ -14,7 +14,7 @@ void RaymarchMain(uint3 dispatchId : SV_DispatchThreadID)
     res = trace(_input[arrId]);
     _output[arrId] = res;
 }
-[numthreads(128, 1, 1)]
+[numthreads(32, 1, 1)]
 void DistanceMain(uint3 dispatchId : SV_DispatchThreadID)
 {
     uint arrId = dispatchId.x;
@@ -27,7 +27,7 @@ void DistanceMain(uint3 dispatchId : SV_DispatchThreadID)
 float3 _translation_1;
 float4 _rotation_1;
 
-float _Iterations_1;
+int _Iterations_1;
 float _Cx_1;
 float _Cy_1;
 float _Cz_1;
@@ -38,9 +38,8 @@ float _dist_1(float3 p) {
     float4 z = float4(p,0.0);
     float md2 = 1.0;
     float mz2 = dot(z,z);
-    int maxI = int(_Iterations_1);
 
-    for( int i=0; i<maxI; i++ )
+    for( int i=0; i<_Iterations_1; i++ )
     {
         // |dz|^2 -> 4*|dz|^2
         md2 *= 4.0*mz2;

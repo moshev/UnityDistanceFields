@@ -3,13 +3,13 @@
 // properties
 
 _Power("Power", Float) = 2
-_Iterations("Iterations", Int) = 1
+_Iterations("Iterations", Float) = 16
 _Bailout("Bailout limit", Float) = 2
 
 // cgprogram
 
 float _Power;
-int _Iterations;
+float _Iterations;
 float _Bailout;
 
 float _dist(float3 p) {

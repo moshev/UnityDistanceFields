@@ -13,9 +13,12 @@ float _Sy;
 float _Sz;
 
 float _dist(float3 p) {
-    float x = max(p.x - float3(_Sx*0.5, 0, 0),-p.x - float3(_Sx*0.5, 0, 0));
-    float y = max(p.y - float3(_Sy*0.5, 0, 0),-p.y - float3(_Sy*0.5, 0, 0));
-    float z = max(p.z - float3(_Sz*0.5, 0, 0),-p.z - float3(_Sz*0.5, 0, 0));
+    //float x = max(p.x - float3(_Sx*0.5, 0, 0),-p.x - float3(_Sx*0.5, 0, 0));
+    //float y = max(p.y - float3(_Sy*0.5, 0, 0),-p.y - float3(_Sy*0.5, 0, 0));
+    //float z = max(p.z - float3(_Sz*0.5, 0, 0),-p.z - float3(_Sz*0.5, 0, 0));
+    float x = max(p.x - _Sx*0.5, -p.x - _Sx*0.5);
+    float y = max(p.y - _Sy*0.5, -p.y - _Sy*0.5);
+    float z = max(p.z - _Sz*0.5, -p.z - _Sz*0.5);
     float d = x;
     d = max(d,y);
     d = max(d,z);

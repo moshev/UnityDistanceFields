@@ -1,6 +1,6 @@
-Shader "Unlit/Mandelbulb" {
+Shader "Unlit/Tests" {
    Properties {
-        _Iterations_1("Iterations", Float) = 16
+        _Iterations_1("Iterations", Int) = 16
         _Cx_1("C x", Float) = 0.6651410179788055
         _Cy_1("C y", Float) = 0.995165511524831
         _Cz_1("C z", Float) = -0.09786148786209856
@@ -24,7 +24,7 @@ Shader "Unlit/Mandelbulb" {
 float3 _translation_1;
 float4 _rotation_1;
 
-float _Iterations_1;
+int _Iterations_1;
 float _Cx_1;
 float _Cy_1;
 float _Cz_1;
@@ -35,9 +35,8 @@ float _dist_1(float3 p) {
     float4 z = float4(p,0.0);
     float md2 = 1.0;
     float mz2 = dot(z,z);
-    int maxI = int(_Iterations_1);
 
-    for( int i=0; i<maxI; i++ )
+    for( int i=0; i<_Iterations_1; i++ )
     {
         // |dz|^2 -> 4*|dz|^2
         md2 *= 4.0*mz2;

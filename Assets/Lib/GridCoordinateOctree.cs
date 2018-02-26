@@ -102,12 +102,16 @@ public struct GridEdge : IComparable<GridEdge>
     //! t*v0+(1-t)*v1 = crossing point
     public float t;
 
+    //! Normal at intersection
+    public Vector3 normal;
+
     public GridEdge(GridCoordinate c0, GridCoordinate c1, float d0, float d1)
     {
         this.c0 = c0;
         this.c1 = c1;
         this.d0 = d0;
         this.d1 = d1;
+        this.normal = Vector3.zero;
         t = (Math.Abs(d1 - d0) < 1e-6f) ? 0.5f : d1 / (d1 - d0);
     }
 

@@ -1,0 +1,39 @@
+// name = Julia
+
+// properties
+
+_Iterations("Iterations", Float) = 16
+_Cx("C x", Float) = 0.6651410179788055
+_Cy("C y", Float) = 0.995165511524831
+_Cz("C z", Float) = -0.09786148786209856
+_Cw("C w", Float) = 0.42337454445066547
+
+// cgprogram
+
+float _Iterations;
+float _Cx;
+float _Cy;
+float _Cz;
+float _Cw;
+
+float _dist(float3 p) {
+    float4 c = float4(_Cx, _Cy, _Cz, _Cw);
+    float4 z = float4(p,0.0);
+    float md2 = 1.0;
+    float mz2 = dot(z,z);
+    int maxI = int(_Iterations);
+
+    for( int i=0; i<maxI; i++ )
+    {
+        // |dz|^2 -> 4*|dz|^2
+        md2 *= 4.0*mz2;
+        
+        // z -> z2 + c
+        z = float4( z.x*z.x-dot(z.yzw,z.yzw), 2.0*z.x*z.yzw ) + c;
+
+        mz2 = dot(z,z);
+        if(mz2>4.0) break;
+    }
+    
+    return 0.25*sqrt(mz2/md2)*log(mz2);
+}
