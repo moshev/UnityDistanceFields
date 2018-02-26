@@ -460,78 +460,6 @@ public class DFNodeMesher
         StartTask(progressReport, "Constructing vertices", TaskConstructVertices);
     }
 
-    private static double[,] MatrixTranspose(double[,] M)
-    {
-        double[,] T = new double[M.GetLength(1), M.GetLength(0)];
-        for (int j = 0; j < M.GetLength(0); j++)
-        {
-            for (int i = 0; i < M.GetLength(1); i++)
-            {
-                T[i, j] = M[j, i];
-            }
-        }
-        return T;
-    }
-
-    private static double[,] MatrixMul(double[,] A, double[,] B)
-    {
-        if (A.GetLength(1) != B.GetLength(0))
-        {
-            throw new Exception(String.Format("Mismatched matrix sizes - A[{0}, {1}] x B[{2}, {3}]", A.GetLength(0), A.GetLength(1), B.GetLength(0), B.GetLength(1)));
-        }
-        double[,] R = new double[A.GetLength(0), B.GetLength(1)];
-        for (int j = 0; j < A.GetLength(0); j++)
-        {
-            for (int i = 0; i < B.GetLength(1); i++)
-            {
-                double sum = 0;
-                for (int k = 0; k < B.GetLength(0); k++)
-                {
-                    double m = A[j, k] * B[k, i];
-                    sum += m;
-                }
-                R[j, i] = sum;
-            }
-        }
-        return R;
-    }
-
-    private static double[,] MatrixColumnReplace(double[,] A, double[,] c, int k)
-    {
-        if (c.GetLength(1) != 1)
-        {
-            throw new Exception("c is not a column vector");
-        }
-        if (c.GetLength(0) != A.GetLength(0))
-        {
-            throw new Exception("Size mismatch");
-        }
-        double[,] B = new double[A.GetLength(0), A.GetLength(1)];
-        for (int j = 0; j < A.GetLength(0); j++)
-        {
-            for (int i = 0; i < A.GetLength(1); i++)
-            {
-                if (i == k)
-                {
-                    B[j, i] = c[j, 0];
-                }
-                else
-                {
-                    B[j, i] = A[j, i];
-                }
-            }
-        }
-        return B;
-    }
-
-    private static double MatrixDeterminant(double[,] A)
-    {
-        return
-            A[0, 0] * A[1, 1] * A[2, 2] - A[0, 2] * A[1, 1] * A[2, 0] +
-            A[0, 1] * A[1, 2] * A[2, 0] - A[0, 0] * A[1, 2] * A[2, 1] +
-            A[0, 2] * A[1, 0] * A[2, 1] - A[0, 1] * A[1, 0] * A[2, 2];
-    }
-
     public void TaskConstructVertices()
     {
         netVertices = new GridCoordinateOctree<IndexedVector3>(
@@ -545,11 +473,7 @@ public class DFNodeMesher
                 for (int i = 0; i < gridSize - 1; i++)
                 {
                     int nEdges = 0;
-                    // Matrix whose rows are the normals of the edges' intersections
-                    double[,] A = new double[12, 3];
-                    // Vector whose entries are n_i * p_i - dot product of normal and intersection point
-                    double[,] b = new double[12, 1];
-                    // Sum of the intersection points - used for estimation if system can't be solved
+                    // Sum of the intersection points
                     Vector3 sum = Vector3.zero;
                     // coordinate of bottom front left vertex
                     GridCoordinate cBase = new GridCoordinate(i, j, k);
@@ -590,57 +514,12 @@ public class DFNodeMesher
                         float t = gridEdge.t;
                         Vector3 v = t * v0 + (1 - t) * v1;
                         sum += v;
-                        double[] pi = new double[3];
-                        pi[0] = v.x;
-                        pi[1] = v.y;
-                        pi[2] = v.z;
-                        Vector3 n = gridEdge.normal;
-
-                        b[nEdges, 0] = pi[0] * n.x + pi[1] * n.y + pi[2] * n.z;
-
-                        A[nEdges, 0] = n.x;
-                        A[nEdges, 1] = n.y;
-                        A[nEdges, 2] = n.z;
-
                         nEdges++;
                     }
                     if (nEdges > 0)
                     {
                         sum /= nEdges;
-                    }
-                    Vector3 result = sum;
-                    if (nEdges >= 3)
-                    {
-                        // A without the missing rows
-                        double[,] A_ = new double[nEdges, 3];
-                        // b without the missing rows
-                        double[,] b_ = new double[nEdges, 1];
-                        for (int m = 0; m < nEdges; m++)
-                        {
-                            b_[m, 0] = b[m, 0];
-                            A_[m, 0] = A[m, 0];
-                            A_[m, 1] = A[m, 1];
-                            A_[m, 2] = A[m, 2];
-                        }
-                        // A^T
-                        double[,] AT = MatrixTranspose(A_);
-                        // A^T * A
-                        double[,] ATA = MatrixMul(AT, A_);
-                        // A^T * b
-                        double[,] ATb = MatrixMul(AT, b_);
-                        const double EPS = 0.01;
-                        double D = MatrixDeterminant(ATA);
-                        if (Math.Abs(D) > EPS)
-                        {
-                            double Dx = MatrixDeterminant(MatrixColumnReplace(ATA, ATb, 0));
-                            double Dy = MatrixDeterminant(MatrixColumnReplace(ATA, ATb, 1));
-                            double Dz = MatrixDeterminant(MatrixColumnReplace(ATA, ATb, 2));
-                            result.Set((float)(Dx / D), (float)(Dy / D), (float)(Dz / D));
-                        }
-                    }
-                    if (nEdges > 0)
-                    {
-                        netVertices.Add(IndexedVector3.Create(result), cBase);
+                        netVertices.Add(IndexedVector3.Create(sum), cBase);
                     }
                 }
             }
