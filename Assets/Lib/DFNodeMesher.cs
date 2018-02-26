@@ -202,7 +202,11 @@ public class DFNodeMesher
         cornerScale = 2.0f * gridRadius / gridSize;
     }
 
-    private void StartTask(ProgressReport progressReport, string message, ThreadStart task)
+    public delegate void TaskSingle();
+
+    public delegate void TaskMulti(int threadId, int numThreads);
+
+    private void StartTask(ProgressReport progressReport, string message, TaskSingle task)
     {
         currentProgress = progressReport;
         currentProgress.StartProgress(message);
@@ -220,6 +224,36 @@ public class DFNodeMesher
         });
         worker.IsBackground = true;
         worker.Start();
+    }
+
+    private void StartTask(ProgressReport progressReport, string message, TaskMulti task)
+    {
+        currentProgress = progressReport;
+        currentProgress.StartProgress(message);
+        int numThreads = Environment.ProcessorCount;
+        if (numThreads > 1) numThreads--; // leave one thread free
+        Thread[] workers = new Thread[numThreads];
+        int completed = 0;
+        for (int i = 0; i < numThreads; i++)
+        {
+            workers[i] = new Thread(delegate ()
+            {
+                try
+                {
+                    task(i, numThreads);
+                }
+                catch (Exception e)
+                {
+                    Debug.LogException(e);
+                }
+                if (Interlocked.Increment(ref completed) == numThreads)
+                {
+                    progressReport.EndProgress();
+                }
+            });
+            workers[i].IsBackground = true;
+            workers[i].Start();
+        }
     }
 
     public void AlgorithmCalculateDistances(ProgressReport progressReport)
@@ -519,7 +553,9 @@ public class DFNodeMesher
                     if (nEdges > 0)
                     {
                         sum /= nEdges;
+                        Monitor.Enter(netVertices);
                         netVertices.Add(IndexedVector3.Create(sum), cBase);
+                        Monitor.Exit(netVertices);
                     }
                 }
             }

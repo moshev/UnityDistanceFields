@@ -102,6 +102,19 @@ public class ProgressReport
         Interlocked.Increment(ref wasChanged);
     }
 
+    //! Update progress if greater than current
+    public void UpdateProgress(double progress)
+    {
+        while (true)
+        {
+            double current = state.progress;
+            if (progress < current) break;
+            if (Interlocked.CompareExchange(ref state.progress, progress, current) == current) break;
+        }
+        Thread.MemoryBarrier();
+        Interlocked.Increment(ref wasChanged);
+    }
+
     public void EndProgress()
     {
         Interlocked.Exchange(ref state.runStatus, STATE_FINISHED);
