@@ -1,26 +1,29 @@
-Shader "Unlit/Fig3" {
-   Properties {
-        _Sx_1("Width", Float) = 1
-        _Sy_1("Height", Float) = 1
-        _Sz_1("Depth", Float) = 1
-        _Radius_1("Radius", Float) = 0.2
-        _Height_1("Height", Float) = 1
-        _CanvasSize("CanvasSize", Float) = 1
-    }
-    SubShader {
-        Tags { "RenderType" = "Opaque" "Queue" = "Transparent" }
-        LOD 200
-        Pass {
-            Tags { "LightMode" = "ForwardBase" }
-            Cull Back
-            CGPROGRAM
-            #pragma vertex vert
-            #pragma fragment frag
-            #include "UnityCG.cginc"
-            #include "RaymarchUtils.cginc"
-/////////////////////
-// BEGIN CODE
-/////////////////////
+#pragma kernel RaymarchMain
+#pragma kernel DistanceMain
+#define _DIST_FUNCTION _dist_xform_3
+float _dist_xform_3(float3 p);
+#include "RaymarchUtils.cginc"
+#include "RaymarchMainCompute.cginc"
+StructuredBuffer<raycontext> _input;
+RWStructuredBuffer<rayresult> _output;
+[numthreads(128, 1, 1)]
+void RaymarchMain(uint3 dispatchId : SV_DispatchThreadID)
+{
+    uint arrId = dispatchId.x;
+    rayresult res;
+    res = trace(_input[arrId]);
+    _output[arrId] = res;
+}
+[numthreads(128, 1, 1)]
+void DistanceMain(uint3 dispatchId : SV_DispatchThreadID)
+{
+    uint arrId = dispatchId.x;
+    rayresult res;
+    res.p = float3(0, 0, 0);
+    res.n = normalize(grad(_input[arrId].p));
+    res.distance = _DIST_FUNCTION(_input[arrId].p);
+    _output[arrId] = res;
+}
 float3 _translation_1;
 float4 _rotation_1;
 
@@ -71,14 +74,3 @@ float _dist_xform_3(float3 p) {
     return _dist_3(qrot(qinv(_rotation_3), p - _translation_3));
 }
 
-/////////////////////
-// END CODE
-/////////////////////
-            #define _DIST_FUNCTION _dist_xform_3
-            #define DO_LIGHTS 1
-            #include "RaymarchMain.cginc"
-            ENDCG
-        }
-    }
-    FallBack "Diffuse"
-}

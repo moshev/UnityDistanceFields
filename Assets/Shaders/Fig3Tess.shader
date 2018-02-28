@@ -1,4 +1,4 @@
-Shader "Surface/HornsTess" {
+Shader "Surface/Fig3Tess" {
    Properties {
         _EdgeLength ("Tessellation edge Length", Range(2,50)) = 15
         _MaxDisplacement ("Maximum object-space displacement", Range(0,1)) = 0.1
@@ -20,8 +20,19 @@ Shader "Surface/HornsTess" {
 
 
 
+
+
 float _dist_1(float3 p) {
-	return length(p) - 1.35;
+    //float x = max(p.x - float3(2.7*0.5, 0, 0),-p.x - float3(2.7*0.5, 0, 0));
+    //float y = max(p.y - float3(0.22*0.5, 0, 0),-p.y - float3(0.22*0.5, 0, 0));
+    //float z = max(p.z - float3(2.49*0.5, 0, 0),-p.z - float3(2.49*0.5, 0, 0));
+    float x = max(p.x - 2.7*0.5, -p.x - 2.7*0.5);
+    float y = max(p.y - 0.22*0.5, -p.y - 0.22*0.5);
+    float z = max(p.z - 2.49*0.5, -p.z - 2.49*0.5);
+    float d = x;
+    d = max(d,y);
+    d = max(d,z);
+    return d;
 }
 
 float _dist_xform_1(float3 p) {
@@ -30,52 +41,30 @@ float _dist_xform_1(float3 p) {
 
 
 
+
 float _dist_2(float3 p) {
-	float3 q = abs(p) - float3(1.36, 1.36, 1.36);
-	return max(max(q.x, q.y), q.z);
+    return lerp(length(p.xz) - 0.09, length(float3(p.x, abs(p.y) - 1.11, p.z)) - 0.09,
+            step(1.11, abs(p.y)));
 }
 
 float _dist_xform_2(float3 p) {
-    return _dist_2(qrot(qinv(float4(-0.1731736,0.2309967,0.1132079,0.9507026)), p - float3(0,0,0.935)));
+    return _dist_2(qrot(qinv(float4(0,0,0,1)), p - float3(0.494,0.591,0.671)));
 }
 
 float _dist_3(float3 p) {
-	return max(_dist_xform_1(p), _dist_xform_2(p));
+    float a = _dist_xform_1(p);
+    float b = _dist_xform_2(p);
+    return max(a, -b);
 }
 
 float _dist_xform_3(float3 p) {
-    return _dist_3(qrot(qinv(float4(0,0,0,1)), p - float3(0,0,0)));
-}
-
-
-
-
-float _dist_4(float3 p) {
-    float z = p.y;
-    float xy2 = dot(p, p);
-    float b = 1.18 - sqrt(xy2);
-    return sqrt(b * b + z * z) - 0.38;
-}
-
-float _dist_xform_4(float3 p) {
-    return _dist_4(qrot(qinv(float4(0,0,0,1)), p - float3(0,0,0)));
-}
-
-
-
-float _dist_5(float3 p) {
-	float a = clamp(0.52, 0.0, 1.0);
-	return (1.0 - a) * _dist_xform_3(p) + a * _dist_xform_4(p);
-}
-
-float _dist_xform_5(float3 p) {
-    return _dist_5(p);
+    return _dist_3(p);
 }
 
 /////////////////////
 // END CODE
 /////////////////////
-        #define _DIST_FUNCTION _dist_xform_5
+        #define _DIST_FUNCTION _dist_xform_3
         #include "TessMain.cginc"
         ENDCG
     }

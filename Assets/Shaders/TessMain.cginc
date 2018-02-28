@@ -56,8 +56,8 @@ fixed4 _Color;
 float _Specular;
 
 void surf (Input IN, inout SurfaceOutputStandard o) {
-	half4 c = tex2D (_MainTex, IN.uv_MainTex) * _Color;
-	o.Albedo = c.rgb;
+	o.Albedo = _Color.rgb;
     o.Alpha = 1;
     o.Smoothness = 0.5;
+    o.Metallic = 0;
 }
