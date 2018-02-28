@@ -116,7 +116,7 @@ public class DFNodeControlsWindow : EditorWindow
         }
         if (GUILayout.Button("Step 4 - write mesh"))
         {
-            string objfile = EditorUtility.SaveFilePanelInProject("Select OBJ file", renderer.gameObject.name + ".obj", "obj", "Enter a file name to save the mesh as", "Models");
+            string objfile = EditorUtility.SaveFilePanel("Select OBJ file", "Assets", renderer.gameObject.name + ".obj", "obj");
             if (!string.IsNullOrEmpty(objfile))
             {
                 mesher.AlgorithmWriteMesh(operationProgress, objfile);

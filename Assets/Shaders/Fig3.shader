@@ -4,7 +4,6 @@ Shader "Unlit/Fig3" {
         _Sy_1("Height", Float) = 1
         _Sz_1("Depth", Float) = 1
         _Radius_1("Radius", Float) = 1
-        _Factor_1("Mix Factor", Float) = 0.5
         _CanvasSize("CanvasSize", Float) = 1
     }
     SubShader {
@@ -59,11 +58,12 @@ float _dist_xform_2(float3 p) {
 float3 _translation_3;
 float4 _rotation_3;
 
-float _Factor_1;
-
 float _dist_3(float3 p) {
-	float a = clamp(_Factor_1, 0.0, 1.0);
-	return (1.0 - a) * _dist_xform_1(p) + a * _dist_xform_2(p);
+    float a = _dist_xform_1(p);
+    float b = _dist_xform_2(p);
+    if (!isfinite(a)) return b;
+    if (!isfinite(b)) return a;
+    return min(a, b);
 }
 
 float _dist_xform_3(float3 p) {
