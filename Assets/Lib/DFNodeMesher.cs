@@ -79,6 +79,13 @@ internal struct RayResult
     public const int floatSize = 7;
 }
 
+internal struct GridCube
+{
+    public int startEdge;
+    public int endEdge;
+    public Vector3 v;
+}
+
 public class DFNodeMesher
 {
     public ComputeShader distanceEstimator;
@@ -129,8 +136,11 @@ public class DFNodeMesher
     }
 
     private float[,,] distances;
-    private GridCoordinateOctree<GridEdge> edgesCrossingSurface;
-    private GridCoordinateOctree<IndexedVector3> netVertices;
+    private List<GridEdge> edgesCrossingSurface;
+    private List<GridCube> netCubes;
+    private List<int> netCubesEdges; // Variable number of edges per cube
+    private List<int> netEdgesCubes; // 4 cubes per edge
+    private Dictionary<GridCoordinate, int> netCubesMap;
 
     public static Vector3[] corners = new Vector3[]
     {
@@ -383,7 +393,7 @@ public class DFNodeMesher
         StartTask(progressReport, "Finding edge intersections", TaskFindEdgeIntersections);
     }
 
-    public void AdjustAndInsertEdges(float[] shaderOutput, GridEdge[] pendingEdges, GridCoordinateOctree<GridEdge> octree, int nEdges)
+    public void AdjustAndInsertEdges(float[] shaderOutput, GridEdge[] pendingEdges, List<GridEdge> edgesList, int nEdges)
     {
         for (int i = 0; i < nEdges; i++)
         {
@@ -393,15 +403,17 @@ public class DFNodeMesher
             Vector3 v0 = VectorFromCoordinate(e.c0);
             Vector3 v1 = VectorFromCoordinate(e.c1);
             float t = Vector3.Dot(v0 - v1, res.p - v1) / Vector3.Dot(v0 - v1, v0 - v1);
+            /*
             if (i % 37 == 0)
             {
                 Vector3 pold = e.t * v0 + (1 - e.t) * v1;
                 Debug.Log(String.Format("Edge {0}->{1} ({4}->{5}) adjusting t from {2} to {3}, e.p={6}, e.distance={7};{8} res={9}", e.c0, e.c1, e.t, t, v0, v1, pold,
                     distances[e.c0.i, e.c0.j, e.c0.k], distances[e.c1.i, e.c1.j, e.c1.k], res.DebugDump()));
             }
+            */
             e.t = t;
             e.normal = res.n;
-            edgesCrossingSurface.Add(e, e.c0);
+            edgesList.Add(e);
         }
     }
 
@@ -417,8 +429,7 @@ public class DFNodeMesher
         // shader output converted to edges
         GridEdge[] pendingEdges = new GridEdge[bufsz];
         int bufferIdx = 0;
-        edgesCrossingSurface = new GridCoordinateOctree<GridEdge>(
-            new GridCoordinate(0, 0, 0), new GridCoordinate(gridSize, gridSize, gridSize));
+        edgesCrossingSurface = new List<GridEdge>();
         for (int k = 0; k < gridSize; k++)
         {
             for (int j = 0; j < gridSize; j++)
@@ -476,18 +487,6 @@ public class DFNodeMesher
         currentStep = AlgorithmStep.EdgeIntersectionsFound;
     }
 
-    private static int[] voxelEdgeVertex0 = new int[]
-    {
-        0, 0, 0, 5, 5, 5, 3, 3, 3, 6, 6, 6,
-    };
-
-    private static int[] voxelEdgeVertex1 = new int[]
-    {
-        1, 2, 4, 1, 7, 4, 1, 2, 7, 2, 4, 7,
-    };
-
-    private List<GridEdge> errorEdges;
-
     public void AlgorithmConstructVertices(ProgressReport progressReport)
     {
         InitKernel();
@@ -496,9 +495,147 @@ public class DFNodeMesher
 
     public void TaskConstructVertices()
     {
-        netVertices = new GridCoordinateOctree<IndexedVector3>(
-            new GridCoordinate(0, 0, 0), new GridCoordinate(gridSize, gridSize, gridSize));
-        errorEdges = new List<GridEdge>();
+        netCubes = new List<GridCube>();
+        netCubesMap = new Dictionary<GridCoordinate, int>();
+        netEdgesCubes = new List<int>(4 * edgesCrossingSurface.Count);
+        for (int edgeIdx = 0; edgeIdx < edgesCrossingSurface.Count; edgeIdx++)
+        {
+            GridEdge edge = edgesCrossingSurface[edgeIdx];
+            GridCoordinate c0 = edge.c0;
+            GridCoordinate c1 = edge.c1;
+            Debug.Assert(c0.CompareTo(c1) != 0);
+            GridCoordinate cBase;
+            if (c0.CompareTo(c1) < 0)
+            {
+                cBase = c0;
+            }
+            else
+            {
+                cBase = c1;
+            }
+            int di = 1 - Math.Abs(c0.i - c1.i);
+            int dj = 1 - Math.Abs(c0.j - c1.j);
+            int dk = 1 - Math.Abs(c0.k - c1.k);
+            int iidx = 0;
+            int[] indices = new int[4];
+            for (int k = cBase.k - dk; k <= cBase.k; k++)
+            {
+                if (k < 0 || k >= gridSize) continue;
+                for (int j = cBase.j - dj; j <= cBase.j; j++)
+                {
+                    if (j < 0 || j >= gridSize) continue;
+                    for (int i = cBase.i - di; i <= cBase.i; i++)
+                    {
+                        if (i < 0 || i >= gridSize) continue;
+                        GridCoordinate cCube = new GridCoordinate(i, j, k);
+                        int cIdx;
+                        if (netCubesMap.ContainsKey(cCube))
+                        {
+                            cIdx = netCubesMap[cCube];
+                            GridCube cube = netCubes[cIdx];
+                            cube.endEdge += 1;
+                            netCubes[cIdx] = cube;
+                        }
+                        else
+                        {
+                            GridCube cube;
+                            cube.startEdge = 0;
+                            cube.endEdge = 1;
+                            cube.v = Vector3.zero;
+                            cIdx = netCubes.Count;
+                            netCubes.Add(cube);
+                            netCubesMap[cCube] = cIdx;
+                        }
+                        indices[iidx++] = cIdx;
+                    }
+                }
+            }
+            for (int i = 0; i < 4; i++)
+            {
+                netEdgesCubes.Add(indices[i]);
+            }
+            currentProgress.SetProgress((1.0 / 3.0) * edgeIdx / (double)(edgesCrossingSurface.Count));
+        }
+        int totalEdges = 0;
+        for (int i = 0; i < netCubes.Count; i++)
+        {
+            GridCube cube = netCubes[i];
+            int end = cube.endEdge;
+            cube.startEdge += totalEdges;
+            cube.endEdge += totalEdges;
+            totalEdges += end;
+            netCubes[i] = cube;
+        }
+        netCubesEdges = new List<int>(totalEdges);
+        for (int i = 0; i < totalEdges; i++) netCubesEdges.Add(-1);
+        for (int edgeIdx = 0; edgeIdx < edgesCrossingSurface.Count(); edgeIdx++)
+        {
+            GridEdge edge = edgesCrossingSurface[edgeIdx];
+            GridCoordinate c0 = edge.c0;
+            GridCoordinate c1 = edge.c1;
+            Debug.Assert(c0.CompareTo(c1) != 0);
+            GridCoordinate cBase;
+            if (c0.CompareTo(c1) < 0)
+            {
+                cBase = c0;
+            }
+            else
+            {
+                cBase = c1;
+            }
+            int di = 1 - Math.Abs(c0.i - c1.i);
+            int dj = 1 - Math.Abs(c0.j - c1.j);
+            int dk = 1 - Math.Abs(c0.k - c1.k);
+            for (int k = cBase.k - dk; k <= cBase.k; k++)
+            {
+                if (k < 0 || k >= gridSize) continue;
+                for (int j = cBase.j - dj; j <= cBase.j; j++)
+                {
+                    if (j < 0 || j >= gridSize) continue;
+                    for (int i = cBase.i - di; i <= cBase.i; i++)
+                    {
+                        if (i < 0 || i >= gridSize) continue;
+                        GridCoordinate cCube = new GridCoordinate(i, j, k);
+                        int cIdx;
+                        if (netCubesMap.ContainsKey(cCube))
+                        {
+                            cIdx = netCubesMap[cCube];
+                            GridCube cube = netCubes[cIdx];
+                            for (int eIdx = cube.startEdge; eIdx < cube.endEdge; eIdx++)
+                            {
+                                if (netCubesEdges[eIdx] < 0)
+                                {
+                                    netCubesEdges[eIdx] = edgeIdx;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            Debug.LogError(String.Format("Error on cube {}", cCube));
+                        }
+                    }
+                }
+            }
+            currentProgress.SetProgress((1.0 / 3.0) + (1.0 / 3.0) * edgeIdx / (double)(edgesCrossingSurface.Count));
+        }
+        for (int cubeIdx = 0; cubeIdx < netCubes.Count; cubeIdx++)
+        {
+            GridCube cube = netCubes[cubeIdx];
+            Vector3 sum = Vector3.zero;
+            for (int edgeIdx = cube.startEdge; edgeIdx < cube.endEdge; edgeIdx++)
+            {
+                GridEdge edge = edgesCrossingSurface[netCubesEdges[edgeIdx]];
+                Vector3 v0 = VectorFromCoordinate(edge.c0);
+                Vector3 v1 = VectorFromCoordinate(edge.c1);
+                float t = edge.t;
+                Vector3 v = t * v0 + (1 - t) * v1;
+                sum += v;
+            }
+            cube.v = sum / (cube.endEdge - cube.startEdge);
+            netCubes[cubeIdx] = cube;
+            currentProgress.SetProgress((2.0 / 3.0) + (1.0 / 3.0) * cubeIdx / (double)netCubes.Count);
+        }
+        /*
         int errors = 0;
         for (int k = 0; k < gridSize - 1; k++)
         {
@@ -562,26 +699,8 @@ public class DFNodeMesher
             currentProgress.SetProgress((k + 1) / (double)(gridSize - 1));
         }
         Debug.Log("Total error edges " + errors);
+        */
         currentStep = AlgorithmStep.VerticesConstructed;
-    }
-
-    private class NetToArrayMapper
-    {
-        private Vector3[] vertices;
-        private int iVertex;
-
-        public NetToArrayMapper(Vector3[] vertices)
-        {
-            this.vertices = vertices;
-            iVertex = 0;
-        }
-
-        public IndexedVector3 Put(IndexedVector3 iv)
-        {
-            iv.i = iVertex++;
-            vertices[iv.i] = iv.v;
-            return iv;
-        }
     }
 
     private class CreateMeshResult
@@ -593,9 +712,9 @@ public class DFNodeMesher
 
     public void AlgorithmCreateMesh(ProgressReport progressReport, MeshFilter mf)
     {
-        if (netVertices.Count > 65000)
+        if (netCubes.Count > 65000)
         {
-            Debug.Log(String.Format("Refusing to create mesh with more than 65k vertices: {0}", netVertices.Count));
+            Debug.Log(String.Format("Refusing to create mesh with more than 65k vertices: {0}", netCubes.Count));
             return;
         }
         if (mf == null)
@@ -655,47 +774,21 @@ public class DFNodeMesher
 
     private void TaskCreateMesh(CreateMeshResult outResult)
     {
-        outResult.vertices = new Vector3[netVertices.Count];
-        outResult.normals = new Vector3[netVertices.Count];
+        outResult.vertices = new Vector3[netCubes.Count];
+        outResult.normals = new Vector3[netCubes.Count];
         outResult.triangles = new int[edgesCrossingSurface.Count * 2 * 3];
-        netVertices.Map(new NetToArrayMapper(outResult.vertices).Put);
-        int iTriangle = 0;
-        int iEdge = 0;
-        foreach (GridEdge edge in edgesCrossingSurface)
+        for (int i = 0; i < netCubes.Count; i++)
         {
+            outResult.vertices[i] = netCubes[i].v;
+        }
+        // free memory
+        netCubes = new List<GridCube>();
+        int iTriangle = 0;
+        for (int iEdge = 0; iEdge < edgesCrossingSurface.Count; iEdge++)
+        {
+            GridEdge edge = edgesCrossingSurface[iEdge];
             GridCoordinate c0 = edge.c0;
             GridCoordinate c1 = edge.c1;
-            Debug.Assert(c0.CompareTo(c1) != 0);
-            GridCoordinate cBase;
-            if (c0.CompareTo(c1) < 0)
-            {
-                cBase = c0;
-            }
-            else
-            {
-                cBase = c1;
-            }
-            int di = 1 - Math.Abs(c0.i - c1.i);
-            int dj = 1 - Math.Abs(c0.j - c1.j);
-            int dk = 1 - Math.Abs(c0.k - c1.k);
-            int iidx = 0;
-            int[] indices = new int[4];
-            for (int k = cBase.k - dk; k <= cBase.k; k++)
-            {
-                for (int j = cBase.j - dj; j <= cBase.j; j++)
-                {
-                    for (int i = cBase.i - di; i <= cBase.i; i++)
-                    {
-                        IndexedVector3 iv = new IndexedVector3();
-                        bool found = netVertices.Get(ref iv, new GridCoordinate(i, j, k));
-                        if (!found)
-                        {
-                            break;
-                        }
-                        indices[iidx++] = iv.i;
-                    }
-                }
-            }
             int[] winding;
             if (c0.i < c1.i || c0.j > c1.j || c0.k < c1.k)
             {
@@ -707,11 +800,10 @@ public class DFNodeMesher
             }
             for (int i = 0; i < 2; i++)
             {
-                outResult.triangles[iTriangle++] = indices[0];
-                outResult.triangles[iTriangle++] = indices[winding[i]];
-                outResult.triangles[iTriangle++] = indices[winding[i + 1]];
+                outResult.triangles[iTriangle++] = netEdgesCubes[4 * iEdge];
+                outResult.triangles[iTriangle++] = netEdgesCubes[4 * iEdge + winding[i]];
+                outResult.triangles[iTriangle++] = netEdgesCubes[4 * iEdge + winding[i + 1]];
             }
-            iEdge++;
             currentProgress.SetProgress(iEdge / (double)(edgesCrossingSurface.Count + outResult.vertices.Length));
         }
         Debug.Assert(iTriangle == outResult.triangles.Length);
@@ -735,7 +827,7 @@ public class DFNodeMesher
                     outResult.normals[i - bufferIdx + 1 + j] = res.n;
                 }
                 bufferIdx = 0;
-                currentProgress.SetProgress((iEdge + i + 1) / (double)(edgesCrossingSurface.Count + outResult.vertices.Length));
+                currentProgress.SetProgress((edgesCrossingSurface.Count + i + 1) / (double)(edgesCrossingSurface.Count + outResult.vertices.Length));
             }
         }
         if (bufferIdx > 0)

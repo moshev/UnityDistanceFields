@@ -81,7 +81,7 @@ public struct GridCoordinate : IComparable<GridCoordinate>
 
     public override int GetHashCode()
     {
-        return i.GetHashCode() ^ j.GetHashCode() ^ k.GetHashCode();
+        return (i.GetHashCode() << 20) ^ (j.GetHashCode() << 10) ^ k.GetHashCode();
     }
 }
 
