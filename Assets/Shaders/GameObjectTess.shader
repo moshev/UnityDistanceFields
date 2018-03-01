@@ -10,7 +10,7 @@ Shader "Surface/GameObjectTess" {
         Tags { "RenderType" = "Opaque" }
         LOD 200
         CGPROGRAM
-        #pragma surface surf BlinnPhong addshadow fullforwardshadows vertex:disp tessellate:tess nolightmap
+        #pragma surface surf Standard addshadow fullforwardshadows vertex:disp tessellate:tess nolightmap
         #pragma target 4.6
         #include "Tessellation.cginc"
         #include "RaymarchUtils.cginc"

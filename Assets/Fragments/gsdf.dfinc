@@ -1,0 +1,65 @@
+// name = GSDF
+
+// properties
+
+_Start("Starting index", Float) = 0
+_End("Ending index", Float) = 2
+_Radius("GSDF Radius", Float) = 1
+_Exponent("GSDF Exponent", Float) = 8
+
+// cgprogram
+
+#ifndef GSDF_VECTORS_DEFINED
+#define GSDF_VECTORS_DEFINED
+static const float3 DIRECTIONS[19] = {
+// cube face normals 0-2
+float3(1.0, 0.0, 0.0),
+float3(0.0, 1.0, 0.0),
+float3(0.0, 0.0, 1.0),
+// octahedron face normals 3-6
+float3(0.5773502691896258, 0.5773502691896258, 0.5773502691896258),
+float3(-0.5773502691896258, 0.5773502691896258, 0.5773502691896258),
+float3(0.5773502691896258, -0.5773502691896258, 0.5773502691896258),
+float3(0.5773502691896258, 0.5773502691896258, -0.5773502691896258),
+// icosahedron faces 3-6+7-12
+float3(0.0, 0.3568220897730899, 0.9341723589627157),
+float3(0.0, -0.3568220897730899, 0.9341723589627157),
+float3(0.9341723589627157, 0.0, 0.3568220897730899),
+float3(-0.9341723589627157, 0.0, 0.3568220897730899),
+float3(0.3568220897730899, 0.9341723589627157, 0.0),
+float3(-0.3568220897730899, 0.9341723589627157, 0.0),
+// dodecahedron 13-18
+float3(0.0, 0.85065080835204, 0.5257311121191336),
+float3(0.0, -0.85065080835204, 0.5257311121191336),
+float3(0.5257311121191336, 0.0, 0.85065080835204),
+float3(-0.5257311121191336, 0.0, 0.85065080835204),
+float3(0.85065080835204, 0.5257311121191336, 0.0),
+float3(-0.85065080835204, 0.5257311121191336, 0.0),
+};
+#endif
+
+float _Start;
+float _End;
+float _Radius;
+float _Exponent;
+
+float _dist(float3 p) {
+    int start = clamp((int)_Start, 0, 18);
+    int end = clamp((int)_End, 0, 18);
+    if (start > end) return 1000;
+    if (_Exponent >= 2) {
+        // smooth object
+        float distance = 0;
+        for (int i = start; i <= end; i++) {
+            distance += pow(abs(dot(p, DIRECTIONS[i])), _Exponent);
+        }
+        return pow(distance, 1/_Exponent) - _Radius;
+    } else {
+        // intersection of planes
+        float distance = 0;
+        for (int i = start; i <= end; i++) {
+            distance = max(distance, abs(dot(p, DIRECTIONS[i])));
+        }
+        return distance - _Radius;
+    }
+}
