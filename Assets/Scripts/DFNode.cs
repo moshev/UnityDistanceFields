@@ -82,55 +82,65 @@ public class DFNode : MonoBehaviour
             body.Append(string.Format("float4 {0};", quaternionUniform));
             body.Append(System.Environment.NewLine);
         }
-        string distFunction = nm.makeUnique("_dist_xform");
-        string distSub = nm.makeUnique("_dist");
-        mangledFragment.Replace("float _dist(", "float " + distSub + "(");
-        body.Append(mangledFragment);
-        string quaternionValue, translationValue;
-        if (lockTransform)
+        string distFunction;
+        if (children.Count == 0)
         {
-            translationValue = string.Format("float3({0},{1},{2})", transform.position.x, transform.position.y, transform.position.z);
-            quaternionValue = string.Format("float4({0},{1},{2},{3})", transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
-        }
-        else
-        {
-            quaternionValue = quaternionUniform;
-            translationValue = translationUniform;
-        }
-        if (lockTransform && zeroTransform)
-        {
-            body.Append(string.Format(@"
+            distFunction = nm.makeUnique("_dist_xform");
+            string distSub = nm.makeUnique("_dist");
+            mangledFragment.Replace("float _dist(", "float " + distSub + "(");
+            body.Append(mangledFragment);
+            string quaternionValue, translationValue;
+            if (lockTransform)
+            {
+                translationValue = string.Format("float3({0},{1},{2})", transform.position.x, transform.position.y, transform.position.z);
+                quaternionValue = string.Format("float4({0},{1},{2},{3})", transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
+            }
+            else
+            {
+                quaternionValue = quaternionUniform;
+                translationValue = translationUniform;
+            }
+            if (lockTransform && zeroTransform)
+            {
+                body.Append(string.Format(@"
 float {0}(float3 p) {{
     return {1}(p);
 }}
 ", distFunction, distSub));
-        }
-        else
-        {
-            body.Append(string.Format(@"
+            }
+            else
+            {
+                body.Append(string.Format(@"
 float {0}(float3 p) {{
     return {1}(qrot(qinv({2}), p - {3}));
 }}
 ", distFunction, distSub, quaternionValue, translationValue));
+            }
+        }
+        else
+        {
+            distFunction = nm.makeUnique("_dist");
+            mangledFragment.Replace("float _dist(", "float " + distFunction + "(");
+            body.Append(mangledFragment);
         }
         return distFunction;
     }
 
-    public void SetTransformsInMaterial(Material mat, bool skipThis)
+    public void SetTransformsInMaterial(Material mat, Transform root = null)
     {
         if (children.Count == 0)
         {
             Vector3 vec;
             Quaternion q;
-            if (skipThis)
-            {
-                vec = Vector3.zero;
-                q = Quaternion.identity;
-            }
-            else
+            if (root == null)
             {
                 vec = transform.position;
                 q = transform.rotation;
+            }
+            else
+            {
+                vec = transform.position - root.position;
+                q = Quaternion.Inverse(root.rotation) * transform.rotation;
             }
             Vector4 qv = new Vector4(q.x, q.y, q.z, q.w);
             mat.SetVector(translationUniform, vec);
@@ -138,25 +148,26 @@ float {0}(float3 p) {{
         }
         foreach (DFNodeChild child in children)
         {
-            child.node.SetTransformsInMaterial(mat, false);
+            child.node.SetTransformsInMaterial(mat, root);
         }
     }
 
-    public void SetTransformsInComputeShader(ComputeShader shader, bool skipThis)
+    public void SetTransformsInComputeShader(ComputeShader shader, Transform root = null)
     {
         if (children.Count == 0)
         {
             Vector3 vec;
             Quaternion q;
-            if (skipThis)
+            if (root == null)
             {
+                root = transform;
                 vec = Vector3.zero;
                 q = Quaternion.identity;
             }
             else
             {
-                vec = transform.position;
-                q = transform.rotation;
+                vec = transform.position - root.position;
+                q = Quaternion.Inverse(root.rotation) * transform.rotation;
             }
             Vector4 qv = new Vector4(q.x, q.y, q.z, q.w);
             shader.SetVector(translationUniform, vec);
@@ -164,7 +175,7 @@ float {0}(float3 p) {{
         }
         foreach (DFNodeChild child in children)
         {
-            child.node.SetTransformsInComputeShader(shader, false);
+            child.node.SetTransformsInComputeShader(shader, root);
         }
     }
 

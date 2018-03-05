@@ -181,7 +181,7 @@ public class DFNodeMesher
         {
             throw new Exception("Can't find kernel DistanceMain or RaymarchMain");
         }
-        rootNode.SetTransformsInComputeShader(distanceEstimator, false);
+        rootNode.SetTransformsInComputeShader(distanceEstimator);
         int nProperties = ShaderUtil.GetPropertyCount(material.shader);
         for (int i = 0; i < nProperties; i++)
         {

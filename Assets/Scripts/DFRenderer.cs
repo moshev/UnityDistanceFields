@@ -55,7 +55,7 @@ public class DFRenderer : MonoBehaviour
     {
         DFNode df = GetComponent<DFNode>();
         if (!df) return;
-        df.SetTransformsInMaterial(GetComponent<Renderer>().sharedMaterial, true);
+        df.SetTransformsInMaterial(GetComponent<Renderer>().sharedMaterial);
         if (fullScene)
         {
             Transform t = transform;

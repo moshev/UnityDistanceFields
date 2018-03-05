@@ -95,7 +95,7 @@ output frag(v2f input) {
 	if (!isfinite(res.distance) || abs(res.distance) > EPSILON) {
 		discard;
 	} else {
-		float4 screenp = UnityObjectToClipPos(mul(unity_WorldToObject, float4(res.p, 1)));
+		float4 screenp = UnityObjectToClipPos(res.p);
 #ifdef DO_LIGHTS
         fixed3 dir = _WorldSpaceLightPos0.xyz;
         if (_WorldSpaceLightPos0.w > 0.5) dir = res.p - dir;
