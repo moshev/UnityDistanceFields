@@ -181,7 +181,7 @@ public class DFNodeMesher
         {
             throw new Exception("Can't find kernel DistanceMain or RaymarchMain");
         }
-        rootNode.SetTransformsInComputeShader(distanceEstimator);
+        rootNode.SetTransformsInComputeShader(distanceEstimator, rootNode.transform);
         int nProperties = ShaderUtil.GetPropertyCount(material.shader);
         for (int i = 0; i < nProperties; i++)
         {
@@ -393,12 +393,14 @@ public class DFNodeMesher
             Vector3 v0 = VectorFromCoordinate(e.c0);
             Vector3 v1 = VectorFromCoordinate(e.c1);
             float t = Vector3.Dot(v0 - v1, res.p - v1) / Vector3.Dot(v0 - v1, v0 - v1);
+            /*
             if (i % 37 == 0)
             {
                 Vector3 pold = e.t * v0 + (1 - e.t) * v1;
                 Debug.Log(String.Format("Edge {0}->{1} ({4}->{5}) adjusting t from {2} to {3}, e.p={6}, e.distance={7};{8} res={9}", e.c0, e.c1, e.t, t, v0, v1, pold,
                     distances[e.c0.i, e.c0.j, e.c0.k], distances[e.c1.i, e.c1.j, e.c1.k], res.DebugDump()));
             }
+            */
             e.t = t;
             e.normal = res.n;
             edgesCrossingSurface.Add(e, e.c0);

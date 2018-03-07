@@ -7,7 +7,9 @@ using UnityEngine;
 public struct DFNodeProperty
 {
     public static string CHILD_NODE = "(ChildNode)";
+    public static string GUI_NAME = "GUI_NAME";
     public string name;
+    public string guiName;
     public string fragment;
 }
 
@@ -46,12 +48,12 @@ public class DFNode : MonoBehaviour
     {
     }
 
-    private string GetFragments(GlobalNameManager nm, List<DFNodeProperty> outProperties, StringBuilder body, bool lockTransform = false, bool zeroTransform = false, Material matProps = null)
+    private string GetFragments(GlobalNameManager nm, List<DFNodeProperty> outProperties, StringBuilder body, bool lockTransform = false, Transform lockRoot = null, Material matProps = null)
     {
         StringBuilder mangledFragment = new StringBuilder(bodyFragment);
         foreach (DFNodeChild child in children)
         {
-            string functionName = child.node.GetFragments(nm, outProperties, body, lockTransform, false, matProps);
+            string functionName = child.node.GetFragments(nm, outProperties, body, lockTransform, lockRoot, matProps);
             Debug.Log("Replace child " + child.name + " with " + functionName);
             mangledFragment.Replace(child.name, functionName);
         }
@@ -74,6 +76,10 @@ public class DFNode : MonoBehaviour
                 DFNodeProperty mangled = new DFNodeProperty();
                 mangled.name = nm.makeUnique(property.name);
                 mangled.fragment = property.fragment;
+                if (!string.IsNullOrEmpty(property.guiName))
+                {
+                    mangled.fragment = mangled.fragment.Replace(DFNodeProperty.GUI_NAME, gameObject.name + ": " + property.guiName);
+                }
                 outProperties.Add(mangled);
                 mangledFragment.Replace(property.name, mangled.name);
             }
@@ -90,32 +96,28 @@ public class DFNode : MonoBehaviour
             mangledFragment.Replace("float _dist(", "float " + distSub + "(");
             body.Append(mangledFragment);
             string quaternionValue, translationValue;
+            Vector3 position = transform.position;
+            Quaternion rotation = transform.rotation;
+            if (lockRoot != null)
+            {
+                position = position - lockRoot.position;
+                rotation = Quaternion.Inverse(lockRoot.rotation) * rotation;
+            }
             if (lockTransform)
             {
-                translationValue = string.Format("float3({0},{1},{2})", transform.position.x, transform.position.y, transform.position.z);
-                quaternionValue = string.Format("float4({0},{1},{2},{3})", transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
+                translationValue = string.Format("float3({0},{1},{2})", position.x, position.y, position.z);
+                quaternionValue = string.Format("float4({0},{1},{2},{3})", rotation.x, rotation.y, rotation.z, rotation.w);
             }
             else
             {
                 quaternionValue = quaternionUniform;
                 translationValue = translationUniform;
             }
-            if (lockTransform && zeroTransform)
-            {
-                body.Append(string.Format(@"
-float {0}(float3 p) {{
-    return {1}(p);
-}}
-", distFunction, distSub));
-            }
-            else
-            {
-                body.Append(string.Format(@"
+            body.Append(string.Format(@"
 float {0}(float3 p) {{
     return {1}(qrot(qinv({2}), p - {3}));
 }}
 ", distFunction, distSub, quaternionValue, translationValue));
-            }
         }
         else
         {
@@ -160,9 +162,8 @@ float {0}(float3 p) {{
             Quaternion q;
             if (root == null)
             {
-                root = transform;
-                vec = Vector3.zero;
-                q = Quaternion.identity;
+                vec = transform.position;
+                q = transform.rotation;
             }
             else
             {
@@ -239,7 +240,7 @@ float {0}(float3 p) {{
         GlobalNameManager nm = new GlobalNameManager();
         List<DFNodeProperty> properties = new List<DFNodeProperty>();
         StringBuilder bodyBuilder = new StringBuilder();
-        string distFunction = GetFragments(nm, properties, bodyBuilder, true, true, material);
+        string distFunction = GetFragments(nm, properties, bodyBuilder, true, transform, material);
         string shaderName = Path.GetFileNameWithoutExtension(assetPath);
         using (StreamWriter fout = new StreamWriter(assetPath))
         {

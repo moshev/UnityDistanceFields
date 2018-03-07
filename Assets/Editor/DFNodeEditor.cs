@@ -97,6 +97,7 @@ public class DFNodeEditor : Editor
             throw new System.Exception("Couldn't find cgprogram part");
         }
         Regex propertyRegex = new Regex(@"^\s*(_\w*)([(].*)", opts);
+        Regex propertyGUINameRegex = new Regex("\"([^\"]*)\"");
         List<DFNodeProperty> properties = new List<DFNodeProperty>();
         List<string> childNames = new List<string>();
         for (offset = propertiesMatch.Index + propertiesMatch.Length; offset < cgprogramMatch.Index;)
@@ -108,6 +109,7 @@ public class DFNodeEditor : Editor
             }
             DFNodeProperty property = new DFNodeProperty();
             property.name = match.Groups[1].Value;
+            property.guiName = null;
             property.fragment = match.Groups[2].Value.Trim();
             if (property.fragment == DFNodeProperty.CHILD_NODE)
             {
@@ -115,6 +117,13 @@ public class DFNodeEditor : Editor
             }
             else
             {
+                Match guiNameMatch = propertyGUINameRegex.Match(property.fragment);
+                if (match.Success)
+                {
+                    Group nameGroup = guiNameMatch.Groups[1];
+                    property.guiName = nameGroup.Value;
+                    property.fragment = property.fragment.Substring(0, nameGroup.Index) + DFNodeProperty.GUI_NAME + property.fragment.Substring(nameGroup.Index + nameGroup.Length);
+                }
                 properties.Add(property);
             }
             offset = match.Index + match.Length;
