@@ -16,6 +16,11 @@ public class DFNodeEditor : Editor
     {
         DFNode node = (DFNode)target;
         string path = node.fragmentPath;
+        if (path.StartsWith(Application.dataPath))
+        {
+            path = "Assets" + path.Substring(Application.dataPath.Length);
+            node.fragmentPath = path;
+        }
         if (string.IsNullOrEmpty(path))
         {
             path = "Please select a file";
