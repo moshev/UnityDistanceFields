@@ -326,7 +326,6 @@ public class DFNodeMesher
 
     private void TaskCalculateDistances()
     {
-        StreamWriter logw = new StreamWriter("C:\\Users\\moshev\\Documents\\distlog.txt");
         Debug.Assert(currentProgress != null);
         distances = new float[gridSize, gridSize, gridSize];
         // buffer size in number of RayContext instances
@@ -354,8 +353,8 @@ public class DFNodeMesher
                     ctx.WriteTo(input, bufferIdx++);
                     if (bufferIdx == bufsz)
                     {
-                        logw.Write(String.Format("Filling from {0} {1} {2} to {3} {4} {5} - {6} elements\n", iStart, jStart, kStart, i, j, k, bufsz));
-                        logw.Flush();
+                        //logw.Write(String.Format("Filling from {0} {1} {2} to {3} {4} {5} - {6} elements\n", iStart, jStart, kStart, i, j, k, bufsz));
+                        //logw.Flush();
                         InvokeShader(input, output, bufsz, kernelDistanceMain);
                         FillDistances(output, iStart, jStart, kStart, i, j, k);
                         iStart = -1;
